@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jaeger
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
@@ -27,11 +28,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: jaeger
+  namespace: {{ .Release.Namespace }}
   labels:
     run: jaeger
 spec:
   ports:
     - name: http
+{{- if eq .Values.monSvcType "NodePort" }}
+      nodePort: 31922
+{{- end }}
       port: 16686
       protocol: TCP
     - name: jaeger
@@ -39,3 +44,4 @@ spec:
       protocol: UDP
   selector:
     run: jaeger
+  type: {{ .Values.monSvcType }}
