@@ -74,6 +74,10 @@ spec:
             - name: JAEGER_AGENT_PORT
               value: "6831"
 {{- end }}
+{{- if or .Values.global.NSRegistrySvc .Values.global.NSRegistrySvcAddr }}
+            - name: NSMD_K8S_ADDRESS
+              value: {{ .Values.global.NSRegistrySvcAddr | default "0.0.0.0:5000" | quote}}
+{{- end }}
       volumes:
         - hostPath:
             path: /var/lib/kubelet/device-plugins
@@ -87,3 +91,23 @@ spec:
             path: /var/lib/networkservicemesh/plugins
             type: DirectoryOrCreate
           name: nsm-plugin-socket
+
+{{- if .Values.global.NSRegistrySvc }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nsmmgr
+  namespace: nsm-system
+  labels:
+    app: nsmmgr
+spec:
+  ports:
+    - port: 5000
+      name: registry
+    - port: 5001
+      name: api
+  selector:
+    app: nsmmgr-daemonset
+{{- end }}
+

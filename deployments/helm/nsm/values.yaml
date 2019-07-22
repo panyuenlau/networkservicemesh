@@ -20,3 +20,4 @@ kernel:
 global:
   # set to true to enable Jaeger tracing for NSM components
   JaegerTracing: false
+  NSRegistrySvc: false
