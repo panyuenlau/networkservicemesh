@@ -35,6 +35,13 @@ spec:
         - name: nsm-admission-webhook
           image: {{ .Values.registry }}/networkservicemesh/admission-webhook:{{ .Values.tag }}
           imagePullPolicy: {{ .Values.pullPolicy }}
+{{- if .Values.global.JaegerTracing }}
+          env:
+            - name: JAEGER_SERVICE_HOST
+              value: jaeger.nsm-system
+            - name: JAEGER_SERVICE_PORT_JAEGER
+              value: "6831"
+{{- end }}
           volumeMounts:
             - name: webhook-certs
               mountPath: /etc/webhook/certs

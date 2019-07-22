@@ -2,10 +2,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: skydive-analyzer
+  namespace: {{ .Release.Namespace }}
   labels:
     app: skydive-analyzer
 spec:
-  type: NodePort
+  type: {{ .Values.monSvcType }}
   ports:
     - port: 8082
       name: api
@@ -24,6 +25,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: skydive-analyzer-config-file
+  namespace: {{ .Release.Namespace }}
 data:
   skydive.yml: |
     storage:
@@ -65,6 +67,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: skydive-analyzer
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
@@ -109,6 +112,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: skydive-agent
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     matchLabels:
