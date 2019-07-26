@@ -48,7 +48,7 @@ type nsmEndpoint struct {
 	tracerCloser   io.Closer
 }
 
-func (nsme *nsmEndpoint) setupNSEServerConnection() (net.Listener, error) {
+func (nsme *NsmEndpoint) setupNSEServerConnection() (net.Listener, error) {
 	c := nsme.Configuration
 	if err := tools.SocketCleanup(c.NsmClientSocket); err != nil {
 		logrus.Errorf("nse: failure to cleanup stale socket %s with error: %v", c.NsmClientSocket, err)
@@ -64,7 +64,7 @@ func (nsme *nsmEndpoint) setupNSEServerConnection() (net.Listener, error) {
 	return connectionServer, nil
 }
 
-func (nsme *nsmEndpoint) serve(listener net.Listener) {
+func (nsme *NsmEndpoint) serve(listener net.Listener) {
 	go func() {
 		if err := nsme.grpcServer.Serve(listener); err != nil {
 			logrus.Fatalf("nse: failed to start grpc server on socket %v with error: %v ", nsme.Configuration.NsmClientSocket, err)
@@ -126,7 +126,7 @@ func (nsme *nsmEndpoint) Start() error {
 	return nil
 }
 
-func (nsme *nsmEndpoint) Delete() error {
+func (nsme *NsmEndpoint) Delete() error {
 	if nsme.Configuration.TracerEnabled {
 		_ = nsme.tracerCloser.Close()
 	}
@@ -162,15 +162,19 @@ func (nsme *nsmEndpoint) Request(ctx context.Context, request *networkservice.Ne
 	return incomingConnection, nil
 }
 
-func (nsme *nsmEndpoint) Close(ctx context.Context, incomingConnection *connection.Connection) (*empty.Empty, error) {
+func (nsme *NsmEndpoint) Close(ctx context.Context, incomingConnection *connection.Connection) (*empty.Empty, error) {
 	_, _ = nsme.service.Close(ctx, incomingConnection)
 	_, _ = nsme.NsClient.Close(ctx, incomingConnection)
 
 	return &empty.Empty{}, nil
 }
 
+func (nsme *NsmEndpoint) GetName() string {
+	return nsme.endpointName
+}
+
 // NewNSMEndpoint creates a new NSM endpoint
-func NewNSMEndpoint(ctx context.Context, configuration *common.NSConfiguration, service networkservice.NetworkServiceServer) (NsmEndpoint, error) {
+func NewNSMEndpoint(ctx context.Context, configuration *common.NSConfiguration, service *CompositeEndpoint) (*NsmEndpoint, error) {
 	if configuration == nil {
 		configuration = &common.NSConfiguration{}
 	}
@@ -186,7 +190,7 @@ func NewNSMEndpoint(ctx context.Context, configuration *common.NSConfiguration, 
 		return nil, err
 	}
 
-	endpoint := &nsmEndpoint{
+	endpoint := &NsmEndpoint{
 		NsmConnection: nsmConnection,
 		service:       service,
 	}
