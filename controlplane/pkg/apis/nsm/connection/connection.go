@@ -38,6 +38,8 @@ type Connection interface {
 	SetConnectionState(state State)
 
 	GetNetworkServiceEndpointName() string
+	GetDestinationNetworkServiceManagerName() string
+	GetSourceNetworkServiceManagerName() string
 
 	IsValid() error
 	IsComplete() error
