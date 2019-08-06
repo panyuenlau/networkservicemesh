@@ -94,12 +94,6 @@ func (c *Connection) SetConnectionState(state connection.State) {
 	}
 }
 
-// GetNetworkServiceEndpointName returns connection endpoint name
-func (c *Connection) GetNetworkServiceEndpointName() string {
-	// Local Connection does't have endpoint name.
-	return ""
-}
-
 // IsValid checks if connection is minimally valid
 func (c *Connection) IsValid() error {
 	if c == nil {

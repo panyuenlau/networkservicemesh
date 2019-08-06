@@ -67,6 +67,10 @@ func (cce *ConnectionEndpoint) Request(ctx context.Context, request *networkserv
 			NetworkService: request.GetConnection().GetNetworkService(),
 			Mechanism:      mechanism,
 			Context:        proto.Clone(request.Connection.Context).(*connectioncontext.ConnectionContext),
+			Labels:         request.GetConnection().GetLabels(),
+			DestinationNetworkServiceManagerName: request.GetConnection().GetDestinationNetworkServiceManagerName(),
+			SourceNetworkServiceManagerName: request.GetConnection().GetSourceNetworkServiceManagerName(),
+			NetworkServiceEndpointName: request.GetConnection().GetNetworkServiceEndpointName(),
 		}
 	}
 
