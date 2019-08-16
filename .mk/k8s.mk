@@ -90,7 +90,7 @@ endif
 
 kubectl = kubectl -n ${NSM_NAMESPACE}
 
-export ORG=$(CONTAINER_REPO)
+ORG ?= $(CONTAINER_REPO)
 
 .PHONY: k8s-deploy
 k8s-deploy: k8s-delete $(addsuffix -deploy,$(addprefix k8s-,$(DEPLOYS)))

@@ -55,6 +55,8 @@ export GOPATH \
        GOTEST \
        GOVET
 
+COMMIT ?= latest
+
 # Setup proxies for docker build
 ifeq ($(HTTP_PROXY),)
 HTTPBUILD=
