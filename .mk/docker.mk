@@ -29,7 +29,7 @@ endif
 RUN_CONTAINERS=$(BUILD_CONTAINERS)
 KILL_CONTAINERS=$(BUILD_CONTAINERS)
 LOG_CONTAINERS=$(KILL_CONTAINERS)
-ORG=networkservicemesh
+ORG ?= networkservicemesh
 VERSION = $(shell git describe --tags --always)
 
 include .mk/vpp_agent.mk
@@ -100,7 +100,7 @@ docker-%-debug:
 	@docker exec -ti $$(docker container ls | grep networkservicemesh/devenv | cut -c1-12) /go/src/github.com/networkservicemesh/networkservicemesh/scripts/debug.sh $*
 
 .PHONY: docker-%-push
-docker-%-push: docker-login docker-%-build
+docker-%-push: docker-%-build
 	docker tag ${ORG}/$*:${COMMIT} ${ORG}/$*:${TAG}
 	docker push ${ORG}/$*:${TAG}
 
