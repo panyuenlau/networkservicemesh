@@ -44,7 +44,18 @@ type NsmClient struct {
 
 // Connect implements the business logic
 func (nsmc *NsmClient) Connect(name, mechanism, description string) (*connection.Connection, error) {
-	logrus.Infof("Initiating an outgoing connection.")
+	return nsmc.ConnectToEndpoint("", "", name, mechanism,
+		description, nsmc.Configuration.Routes)
+}
+
+func (nsmc *NsmClient) ConnectToEndpoint(destEndpointName, destEndpointManager, name, mechanism, description string, routes []string) (*connection.Connection, error) {
+	logrus.WithFields(logrus.Fields{
+		"destEndpointName": destEndpointName,
+		"destEndpointManager": destEndpointManager,
+		"mechanismName": name,
+		"mechanism": mechanism,
+		"description": description,
+	}).Infof("Initiating an outgoing connection.")
 	nsmc.Lock()
 	defer nsmc.Unlock()
 	mechanismType := common.MechanismFromString(mechanism)
@@ -54,9 +65,9 @@ func (nsmc *NsmClient) Connect(name, mechanism, description string) (*connection
 		return nil, err
 	}
 
-	routes := []*connectioncontext.Route{}
-	for _, r := range nsmc.Configuration.Routes {
-		routes = append(routes, &connectioncontext.Route{
+	srcRoutes := []*connectioncontext.Route{}
+	for _, r := range routes {
+		srcRoutes = append(srcRoutes, &connectioncontext.Route{
 			Prefix: r,
 		})
 	}
@@ -68,7 +79,7 @@ func (nsmc *NsmClient) Connect(name, mechanism, description string) (*connection
 				IpContext: &connectioncontext.IPContext{
 					SrcIpRequired: true,
 					DstIpRequired: true,
-					SrcRoutes:     routes,
+					SrcRoutes:     srcRoutes,
 				},
 			},
 			Labels: nsmc.OutgoingNscLabels,
@@ -76,6 +87,12 @@ func (nsmc *NsmClient) Connect(name, mechanism, description string) (*connection
 		MechanismPreferences: []*connection.Mechanism{
 			outgoingMechanism,
 		},
+	}
+	if destEndpointName != "" {
+		outgoingRequest.Connection.NetworkServiceEndpointName = destEndpointName
+	}
+	if destEndpointManager != "" {
+		outgoingRequest.Connection.DestinationNetworkServiceManagerName = destEndpointManager
 	}
 
 	return nsmc.PerformRequest(outgoingRequest)
