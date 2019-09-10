@@ -32,11 +32,18 @@ spec:
           image: {{ .Values.registry }}/{{ .Values.org }}/nsmd:{{ .Values.tag }}
           imagePullPolicy: {{ .Values.pullPolicy }}
 {{- if .Values.global.JaegerTracing }}
+          ports:
+            - containerPort: 5001
+              hostPort: 5001
           env:
             - name: JAEGER_AGENT_HOST
               value: jaeger.nsm-system
             - name: JAEGER_AGENT_PORT
               value: "6831"
+{{- end }}
+{{- if or .Values.global.NSMApiSvc .Values.global.NSMApiSvcAddr }}
+            - name: NSMD_API_ADDRESS
+              value: {{ .Values.global.NSMApiSvcAddr | default "0.0.0.0:5001" | quote}}
 {{- end }}
           volumeMounts:
             - name: nsm-socket
@@ -92,7 +99,7 @@ spec:
             type: DirectoryOrCreate
           name: nsm-plugin-socket
 
-{{- if .Values.global.NSRegistrySvc }}
+{{- if or .Values.global.NSRegistrySvc .Values.global.NSMApiSvc }}
 ---
 apiVersion: v1
 kind: Service
@@ -105,8 +112,9 @@ spec:
   ports:
     - port: 5000
       name: registry
-    - port: 5001
+    - port: {{ .Values.global.NSMApiSvcPort | default "5001" }}
       name: api
+  type: {{ .Values.global.NSMApiSvcType | default "ClusterIP" }}
   selector:
     app: nsmmgr-daemonset
 {{- end }}
