@@ -41,7 +41,7 @@ func main() {
 	}()
 	opentracing.SetGlobalTracer(tracer)
 
-	serviceRegistry := nsmd.NewServiceRegistry()
+	serviceRegistry := nsmd.NewServiceRegistry("")
 	err := NewNSMDeviceServer(serviceRegistry)
 
 	if err != nil {

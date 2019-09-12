@@ -32,6 +32,8 @@ var version string
 const (
 	ProxyNsmdAPIAddressEnv      = "PROXY_NSMD_API_ADDRESS"
 	ProxyNsmdAPIAddressDefaults = ":5006"
+	NsmdAPIAddressEnv      = "NSMD_API_ADDRESS"
+	NsmdAPIPortNumDefault = "5001"
 )
 
 func main() {
@@ -53,8 +55,18 @@ func main() {
 	nsmdProbes := probes.New("Prxoy NSMD liveness/readiness healthcheck", goals)
 	nsmdProbes.BeginHealthCheck()
 
+	// Choose a public API listener
+	nsmdAPIAddress := os.Getenv(NsmdAPIAddressEnv)
+	portNum := NsmdAPIPortNumDefault
+	if strings.TrimSpace(nsmdAPIAddress) != "" {
+		// get the NSMd API port number
+		addr_parse := strings.Split(nsmdAPIAddress, ":")
+		if len(addr_parse) >= 2 {
+			portNum = addr_parse[len(addr_parse) - 1]
+		}
+	}
 	apiRegistry := nsmd.NewApiRegistry()
-	serviceRegistry := nsmd.NewServiceRegistry()
+	serviceRegistry := nsmd.NewServiceRegistry(portNum)
 	defer serviceRegistry.Stop()
 
 	// Choose a public API listener

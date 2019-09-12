@@ -18,6 +18,8 @@ import (
 const (
 	ProxyNsmdK8sAddressEnv      = "PROXY_NSMD_K8S_ADDRESS"
 	ProxyNsmdK8sAddressDefaults = "pnsmgr-svc:5005"
+	NsmdAPIAddressEnv      = "NSMD_API_ADDRESS"
+	NsmdAPIPortNumDefault = "5001"
 )
 
 type discoveryService struct {
@@ -36,7 +38,17 @@ func (d *discoveryService) FindNetworkService(ctx context.Context, request *regi
 		if strings.TrimSpace(nsrURL) == "" {
 			nsrURL = ProxyNsmdK8sAddressDefaults
 		}
-		remoteRegistry := nsmd.NewServiceRegistryAt(nsrURL)
+		// Choose a public API listener
+		nsmdAPIAddress := os.Getenv(NsmdAPIAddressEnv)
+		portNum := NsmdAPIPortNumDefault
+		if strings.TrimSpace(nsmdAPIAddress) != "" {
+			// get the NSMd API port number
+			addr_parse := strings.Split(nsmdAPIAddress, ":")
+			if len(addr_parse) >= 2 {
+				portNum = addr_parse[len(addr_parse) - 1]
+			}
+		}
+		remoteRegistry := nsmd.NewServiceRegistryAt(nsrURL, portNum)
 		defer remoteRegistry.Stop()
 
 		discoveryClient, err := remoteRegistry.DiscoveryClient()

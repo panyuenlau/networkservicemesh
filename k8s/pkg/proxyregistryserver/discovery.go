@@ -21,6 +21,8 @@ const (
 	ProxyNsmdAPIAddressDefaults    = "pnsmgr-svc:5006"
 	ProxyNsmdK8sRemotePortEnv      = "PROXY_NSMD_K8S_REMOTE_PORT"
 	ProxyNsmdK8sRemotePortDefaults = "80"
+	NsmdAPIAddressEnv      = "NSMD_API_ADDRESS"
+	NsmdAPIPortNumDefault = "5001"
 )
 
 type discoveryService struct {
@@ -46,11 +48,21 @@ func (d *discoveryService) FindNetworkService(ctx context.Context, request *regi
 			return nil, err
 		}
 
+		// Choose a public API listener
+		nsmdAPIAddress := os.Getenv(NsmdAPIAddressEnv)
+		portNum := NsmdAPIPortNumDefault
+		if strings.TrimSpace(nsmdAPIAddress) != "" {
+			// get the NSMd API port number
+			addr_parse := strings.Split(nsmdAPIAddress, ":")
+			if len(addr_parse) >= 2 {
+				portNum = addr_parse[len(addr_parse) - 1]
+			}
+		}
 		remoteNsrPort := os.Getenv(ProxyNsmdK8sRemotePortEnv)
 		if strings.TrimSpace(remoteNsrPort) == "" {
 			remoteNsrPort = ProxyNsmdK8sRemotePortDefaults
 		}
-		remoteRegistry := nsmd.NewServiceRegistryAt(remoteDomain + ":" + remoteNsrPort)
+		remoteRegistry := nsmd.NewServiceRegistryAt(remoteDomain + ":" + remoteNsrPort, portNum)
 		defer remoteRegistry.Stop()
 
 		discoveryClient, dErr := remoteRegistry.DiscoveryClient()
@@ -66,14 +78,20 @@ func (d *discoveryService) FindNetworkService(ctx context.Context, request *regi
 		if dErr != nil {
 			return nil, dErr
 		}
-
+		logrus.Infof("Discovery response ok: %s, num endpoints %d",
+			response.NetworkService.Name,
+			len(response.NetworkServiceEndpoints))
 		for _, nsm := range response.NetworkServiceManagers {
+			logrus.Infof("Found NSM %s in Discovery response with URL %s",
+				nsm.Name, nsm.Url)
 			nsm.Name = fmt.Sprintf("%s@%s", nsm.Name, nsm.Url)
 			nsmURL := os.Getenv(ProxyNsmdAPIAddressEnv)
 			if strings.TrimSpace(nsmURL) == "" {
 				nsmURL = ProxyNsmdAPIAddressDefaults
 			}
 			nsm.Url = nsmURL
+			logrus.Infof("Modified NSM info from Discovery response: name %s,  URL %s",
+				nsm.Name, nsm.Url)
 		}
 		response.NetworkService.Name = originNetworkService
 

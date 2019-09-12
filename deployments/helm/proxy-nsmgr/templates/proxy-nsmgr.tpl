@@ -20,6 +20,8 @@ spec:
           ports:
             - containerPort: 5006
           env:
+            - name: NSMD_API_ADDRESS
+              value: ":30501"
             - name: PROXY_NSMD_K8S_REMOTE_PORT
               value: "30505"
 {{- if .Values.global.JaegerTracing }}
@@ -40,6 +42,8 @@ spec:
                   fieldPath: spec.nodeName
             - name: PROXY_NSMD_K8S_REMOTE_PORT
               value: "30505"
+            - name: NSMD_API_ADDRESS
+              value: ":30501"
 {{- if .Values.global.JaegerTracing }}
             - name: JAEGER_AGENT_HOST
               value: jaeger.nsm-system

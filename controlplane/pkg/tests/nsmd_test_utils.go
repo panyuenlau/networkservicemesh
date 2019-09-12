@@ -219,7 +219,7 @@ func (impl *nsmdTestServiceRegistry) NewWorkspaceProvider() serviceregistry.Work
 }
 
 func (impl *nsmdTestServiceRegistry) WaitForDataplaneAvailable(ctx context.Context, model model.Model, timeout time.Duration) error {
-	return nsmd.NewServiceRegistry().WaitForDataplaneAvailable(ctx, model, timeout)
+	return nsmd.NewServiceRegistry("").WaitForDataplaneAvailable(ctx, model, timeout)
 }
 
 func (impl *nsmdTestServiceRegistry) WorkspaceName(endpoint *registry.NSERegistration) string {

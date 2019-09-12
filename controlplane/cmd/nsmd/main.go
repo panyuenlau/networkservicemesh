@@ -24,6 +24,7 @@ var version string
 const (
 	NsmdAPIAddressEnv      = "NSMD_API_ADDRESS"
 	NsmdAPIAddressDefaults = ":5001"
+	NsmdAPIPortNumDefault = "5001"
 )
 
 func main() {
@@ -42,8 +43,21 @@ func main() {
 
 	ctx := opentracing.ContextWithSpan(context.Background(), span)
 
+	// Choose a public API listener
+	nsmdAPIAddress := getNsmdAPIAddress()
+	//nsmdAPIAddress := os.Getenv(NsmdAPIAddressEnv)
+	portNum := NsmdAPIPortNumDefault
+	if strings.TrimSpace(nsmdAPIAddress) == "" {
+		nsmdAPIAddress = NsmdAPIAddressDefaults
+	} else {
+		// get the NSMd API port number
+		addr_parse := strings.Split(nsmdAPIAddress, ":")
+		if len(addr_parse) >= 2 {
+			portNum = addr_parse[len(addr_parse) - 1]
+		}
+	}
 	apiRegistry := nsmd.NewApiRegistry()
-	serviceRegistry := nsmd.NewServiceRegistry()
+	serviceRegistry := nsmd.NewServiceRegistry(portNum)
 	pluginRegistry := plugins.NewPluginRegistry()
 
 	if err := pluginRegistry.Start(ctx); err != nil {
@@ -97,9 +111,7 @@ func main() {
 
 	logrus.Info("Dataplane server is ready")
 	nsmdGoals.SetDataplaneServerReady()
-	// Choose a public API listener
 
-	nsmdAPIAddress := getNsmdAPIAddress()
 	sock, err := apiRegistry.NewPublicListener(nsmdAPIAddress)
 	if err != nil {
 		logrus.Errorf("Failed to start Public API server...")

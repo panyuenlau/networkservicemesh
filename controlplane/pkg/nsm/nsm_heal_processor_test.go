@@ -270,7 +270,7 @@ func (stub *serviceRegistryStub) DiscoveryClient() (registry.NetworkServiceDisco
 }
 
 func (stub *serviceRegistryStub) WaitForDataplaneAvailable(ctx context.Context, model model.Model, timeout time.Duration) error {
-	return nsmd.NewServiceRegistry().WaitForDataplaneAvailable(ctx, model, timeout)
+	return nsmd.NewServiceRegistry("").WaitForDataplaneAvailable(ctx, model, timeout)
 }
 
 type connectionManagerStub struct {

@@ -23,6 +23,8 @@ spec:
             - name: JAEGER_AGENT_PORT
               value: "6831"
 {{- end }}
+            - name: NSMD_API_ADDRESS
+              value: "0.0.0.0:30501"
           volumeMounts:
             - name: kubelet-socket
               mountPath: /var/lib/kubelet/device-plugins
@@ -32,9 +34,6 @@ spec:
           image: {{ .Values.registry }}/{{ .Values.org }}/nsmd:{{ .Values.tag }}
           imagePullPolicy: {{ .Values.pullPolicy }}
 {{- if .Values.global.JaegerTracing }}
-          ports:
-            - containerPort: 5001
-              hostPort: 5001
           env:
             - name: JAEGER_AGENT_HOST
               value: jaeger.nsm-system
@@ -85,6 +84,8 @@ spec:
             - name: NSMD_K8S_ADDRESS
               value: {{ .Values.global.NSRegistrySvcAddr | default "0.0.0.0:5000" | quote}}
 {{- end }}
+            - name: NSMD_API_ADDRESS
+              value: "0.0.0.0:30501"
       volumes:
         - hostPath:
             path: /var/lib/kubelet/device-plugins
@@ -104,18 +105,19 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nsmmgr
-  namespace: nsm-system
+  name: nsmgr
+  namespace: {{ .Release.Namespace }}
   labels:
-    app: nsmmgr
+    app: nsmgr
 spec:
   ports:
-    - port: 5000
-      name: registry
-    - port: {{ .Values.global.NSMApiSvcPort | default "5001" }}
-      name: api
+    - name: registry
+      port: 5000
+    - name: api
+      port: {{ .Values.global.NSMApiSvcPort | default "5001" }}
+      nodePort: {{ .Values.global.NSMApiSvcPort | default "5001" }}
   type: {{ .Values.global.NSMApiSvcType | default "ClusterIP" }}
   selector:
-    app: nsmmgr-daemonset
+    app: nsmgr-daemonset
 {{- end }}
 

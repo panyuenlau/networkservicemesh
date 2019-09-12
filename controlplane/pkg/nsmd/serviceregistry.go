@@ -58,6 +58,7 @@ type nsmdServiceRegistry struct {
 	stopRedial               bool
 	vniAllocator             vni.VniAllocator
 	registryAddress          string
+	apiPortNum               string
 }
 
 func (impl *nsmdServiceRegistry) NewWorkspaceProvider() serviceregistry.WorkspaceLocationProvider {
@@ -141,7 +142,7 @@ func (impl *nsmdServiceRegistry) NsmRegistryClient() (registry.NsmRegistryClient
 }
 
 func (impl *nsmdServiceRegistry) GetPublicAPI() string {
-	return GetLocalIPAddress() + ":5001"
+	return GetLocalIPAddress() + ":" + impl.apiPortNum
 }
 
 func (impl *nsmdServiceRegistry) DiscoveryClient() (registry.NetworkServiceDiscoveryClient, error) {
@@ -190,21 +191,24 @@ func (impl *nsmdServiceRegistry) Stop() {
 	}
 }
 
-func NewServiceRegistry() serviceregistry.ServiceRegistry {
+func NewServiceRegistry(nsmApiPort string) serviceregistry.ServiceRegistry {
 	registryAddress := os.Getenv("NSM_REGISTRY_ADDRESS")
 	registryAddress = strings.TrimSpace(registryAddress)
 	if registryAddress == "" {
 		registryAddress = "127.0.0.1:5000"
 	}
-
-	return NewServiceRegistryAt(registryAddress)
+	if nsmApiPort == "" {
+		nsmApiPort = "5001"
+	}
+	return NewServiceRegistryAt(registryAddress, nsmApiPort)
 }
 
-func NewServiceRegistryAt(nsmAddress string) serviceregistry.ServiceRegistry {
+func NewServiceRegistryAt(nsmAddress, nsmApiPort string) serviceregistry.ServiceRegistry {
 	return &nsmdServiceRegistry{
 		stopRedial:      true,
 		vniAllocator:    vni.NewVniAllocator(),
 		registryAddress: nsmAddress,
+		apiPortNum: nsmApiPort,
 	}
 }
 
