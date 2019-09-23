@@ -59,7 +59,7 @@ func (srv *networkServiceManager) createLocalNSERequest(endpoint *registry.NSERe
 			Labels:         requestConn.GetLabels(),
 			DestinationNetworkServiceManagerName: endpoint.GetNetworkServiceManager().GetName(),
 			SourceNetworkServiceManagerName:      srv.getNetworkServiceManagerName(),
-			NetworkServiceEndpointName:           endpoint.GetNetworkserviceEndpoint().GetEndpointName(),
+			NetworkServiceEndpointName:           endpoint.GetNetworkServiceEndpoint().GetName(),
 		},
 		localM,
 	)

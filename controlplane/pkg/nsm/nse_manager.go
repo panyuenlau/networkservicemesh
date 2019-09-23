@@ -92,7 +92,7 @@ func (nsem *nseManager) getEndpoint(ctx context.Context, requestConnection conne
 func (nsem *nseManager) matchTargetEndpoint(requestConnection connection.Connection, endpoints []*registry.NetworkServiceEndpoint) (*registry.NetworkServiceEndpoint, error) {
 	logrus.Infof("Matching target endpoint %s", requestConnection.GetNetworkServiceEndpointName())
 	for _, endpoint := range endpoints {
-		if endpoint.GetEndpointName() == requestConnection.GetNetworkServiceEndpointName() {
+		if endpoint.GetName() == requestConnection.GetNetworkServiceEndpointName() {
 			logrus.Infof("Found target endpoint %s", requestConnection.GetNetworkServiceEndpointName())
 			return endpoint, nil
 		}
