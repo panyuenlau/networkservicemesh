@@ -41,11 +41,14 @@ spec:
             - name: TAG
               value: "{{ .Values.tag }}"
 {{- if .Values.global.JaegerTracing }}
-          env:
             - name: JAEGER_AGENT_HOST
               value: jaeger.nsm-system
             - name: JAEGER_AGENT_PORT
               value: "6831"
+{{- end }}
+{{- if .Values.global.ExtraDnsServers }}
+            - name: UPDATE_API_DEFAULT_DNS_SERVER
+              value: {{ .Values.global.ExtraDnsServers | quote }}
 {{- end }}
           volumeMounts:
             - name: webhook-certs

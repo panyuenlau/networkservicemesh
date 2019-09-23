@@ -40,6 +40,10 @@ func createDNSPatch(tuple *podSpecAndMeta, annotationValue string) (patch []patc
 						Name:  nsmcorednsenv.UpdateAPIClientSock.Name(),
 						Value: "/etc/coredns/client.sock",
 					},
+					{
+						Name:  nsmcorednsenv.DefaultDNSServerIPList.Name(),
+						Value: nsmcorednsenv.DefaultDNSServerIPList.GetStringOrDefault("10.96.0.10"),
+					},
 				},
 			},
 		})...)
