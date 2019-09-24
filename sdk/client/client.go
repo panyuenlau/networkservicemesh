@@ -51,14 +51,6 @@ func (nsmc *NsmClient) Connect(ctx context.Context, name, mechanism, description
 }
 
 func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string) (*connection.Connection, error) {
-	logrus.WithFields(logrus.Fields{
-		"destEndpointName": destEndpointName,
-		"destEndpointManager": destEndpointManager,
-		"mechanismName": name,
-		"mechanism": mechanism,
-		"description": description,
-	}).Infof("Initiating an outgoing connection.")
-
 	var span opentracing.Span
 	if opentracing.IsGlobalTracerRegistered() {
 		span, ctx = opentracing.StartSpanFromContext(ctx, "nsmClient.Connect")
@@ -66,8 +58,14 @@ func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, 
 	}
 
 	logger := common.LogFromSpan(span)
+	logger.WithFields(logrus.Fields{
+		"destEndpointName": destEndpointName,
+		"destEndpointManager": destEndpointManager,
+		"mechanismName": name,
+		"mechanism": mechanism,
+		"description": description,
+	}).Infof("Initiating an outgoing connection.")
 
-	logger.Infof("Initiating an outgoing connection.")
 	nsmc.Lock()
 	defer nsmc.Unlock()
 	mechanismType := common.MechanismFromString(mechanism)
@@ -116,7 +114,13 @@ func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, 
 		logger.Errorf("failure to request connection with error: %+v", err)
 		return nil, err
 	}
-
+	logger.WithFields(logrus.Fields{
+		"destEndpointName": destEndpointName,
+		"destEndpointManager": destEndpointManager,
+		"mechanismName": name,
+		"mechanism": mechanism,
+		"description": description,
+	}).Infof("Successfully requested connection")
 	nsmc.OutgoingConnections = append(nsmc.OutgoingConnections, outgoingConnection)
 	return outgoingConnection, nil
 }
