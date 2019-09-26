@@ -46,11 +46,11 @@ type NsmClient struct {
 
 // Connect implements the business logic
 func (nsmc *NsmClient) Connect(ctx context.Context, name, mechanism, description string) (*connection.Connection, error) {
-	return nsmc.ConnectToEndpoint(ctx,"", "", name, mechanism,
+	return nsmc.ConnectToEndpoint(ctx, "","", "", name, mechanism,
 		description, nsmc.Configuration.Routes)
 }
 
-func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string) (*connection.Connection, error) {
+func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, remoteIp, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string) (*connection.Connection, error) {
 	var span opentracing.Span
 	if opentracing.IsGlobalTracerRegistered() {
 		span, ctx = opentracing.StartSpanFromContext(ctx, "nsmClient.Connect")
@@ -61,6 +61,7 @@ func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, 
 	logger.WithFields(logrus.Fields{
 		"destEndpointName": destEndpointName,
 		"destEndpointManager": destEndpointManager,
+		"remoteIp": remoteIp,
 		"mechanismName": name,
 		"mechanism": mechanism,
 		"description": description,
@@ -84,10 +85,13 @@ func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, 
 			Prefix: r,
 		})
 	}
-
+	nsName := nsmc.Configuration.OutgoingNscName
+	if remoteIp != "" {
+		nsName = nsName + "@" + remoteIp
+	}
 	outgoingRequest := &networkservice.NetworkServiceRequest{
 		Connection: &connection.Connection{
-			NetworkService: nsmc.Configuration.OutgoingNscName,
+			NetworkService: nsName,
 			Context: &connectioncontext.ConnectionContext{
 				IpContext: &connectioncontext.IPContext{
 					SrcIpRequired: true,
@@ -117,6 +121,7 @@ func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, 
 	logger.WithFields(logrus.Fields{
 		"destEndpointName": destEndpointName,
 		"destEndpointManager": destEndpointManager,
+		"remoteIp": remoteIp,
 		"mechanismName": name,
 		"mechanism": mechanism,
 		"description": description,
