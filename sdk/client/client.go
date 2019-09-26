@@ -59,20 +59,21 @@ type NsmClient struct {
 
 // Connect with no retry and delay
 func (nsmc *NsmClient) Connect(ctx context.Context, name, mechanism, description string) (*connection.Connection, error) {
-	return nsmc.ConnectRetry(ctx, "", "", name, mechanism, description, nsmc.Configuration.Routes, 1, 0)
+	return nsmc.ConnectRetry(ctx, "", "", "", name, mechanism, description, nsmc.Configuration.Routes, 1, 0)
 }
 
-func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string) (*connection.Connection, error) {
-	return nsmc.ConnectRetry(ctx, destEndpointName, destEndpointManager, name, mechanism, description, routes, 1, 0)
+func (nsmc *NsmClient) ConnectToEndpoint(ctx context.Context, remoteIp, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string) (*connection.Connection, error) {
+	return nsmc.ConnectRetry(ctx, remoteIp, destEndpointName, destEndpointManager, name, mechanism, description, routes, 1, 0)
 }
 
 // Connect implements the business logic
-func (nsmc *NsmClient) ConnectRetry(ctx context.Context, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string, retryCount int, retryDelay time.Duration) (*connection.Connection, error) {
+func (nsmc *NsmClient) ConnectRetry(ctx context.Context, remoteIp, destEndpointName, destEndpointManager, name, mechanism, description string, routes []string, retryCount int, retryDelay time.Duration) (*connection.Connection, error) {
 	span := spanhelper.FromContext(ctx, "nsmClient.Connect")
 	defer span.Finish()
 	span.Logger().WithFields(logrus.Fields{
 		"destEndpointName": destEndpointName,
 		"destEndpointManager": destEndpointManager,
+		"remoteIp": remoteIp,
 		"mechanismName": name,
 		"mechanism": mechanism,
 		"description": description,
@@ -102,10 +103,13 @@ func (nsmc *NsmClient) ConnectRetry(ctx context.Context, destEndpointName, destE
 			Prefix: r,
 		})
 	}
-
+	nsName := nsmc.Configuration.OutgoingNscName
+	if remoteIp != "" {
+		nsName = nsName + "@" + remoteIp
+	}
 	outgoingRequest := &networkservice.NetworkServiceRequest{
 		Connection: &connection.Connection{
-			NetworkService: nsmc.Configuration.OutgoingNscName,
+			NetworkService: nsName,
 			Context: &connectioncontext.ConnectionContext{
 				IpContext: &connectioncontext.IPContext{
 					SrcIpRequired: true,
@@ -154,8 +158,16 @@ func (nsmc *NsmClient) ConnectRetry(ctx context.Context, destEndpointName, destE
 		}
 		break
 	}
-	span.Logger().Infof("Success connection")
+	span.Logger().WithFields(logrus.Fields{
+		"destEndpointName": destEndpointName,
+		"destEndpointManager": destEndpointManager,
+		"remoteIp": remoteIp,
+		"mechanismName": name,
+		"mechanism": mechanism,
+		"description": description,
+	}).Infof("Successfully requested connection")
 	span.LogObject("connection", outgoingConnection)
+
 	nsmc.OutgoingConnections = append(nsmc.OutgoingConnections, outgoingConnection)
 	return outgoingConnection, nil
 }
