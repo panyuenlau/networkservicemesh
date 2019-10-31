@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,7 +24,8 @@ func createDNSPatch(tuple *podSpecAndMeta, annotationValue string) (patch []patc
 		[]corev1.Container{
 			{
 				Name:            "nsm-coredns",
-				Image:           fmt.Sprintf("%s/%s:%s", getRepo(), "nsm-coredns", getTag()),
+				//Image:           fmt.Sprintf("%s/%s:%s", getRepo(), "nsm-coredns", getTag()),
+				Image:           "k8s.gcr.io/coredns:1.2.6",
 				ImagePullPolicy: corev1.PullIfNotPresent,
 				Args:            []string{"-conf", "/etc/coredns/Corefile"},
 				VolumeMounts: []corev1.VolumeMount{{
@@ -34,7 +36,7 @@ func createDNSPatch(tuple *podSpecAndMeta, annotationValue string) (patch []patc
 				Env: []corev1.EnvVar{
 					{
 						Name:  nsmcorednsenv.UseUpdateAPIEnv.Name(),
-						Value: "true",
+						Value: strconv.FormatBool(nsmcorednsenv.UseUpdateAPIEnv.GetBooleanOrDefault(false)),
 					},
 					{
 						Name:  nsmcorednsenv.UpdateAPIClientSock.Name(),
@@ -47,6 +49,31 @@ func createDNSPatch(tuple *podSpecAndMeta, annotationValue string) (patch []patc
 				},
 			},
 		})...)
+	volmMount := []corev1.VolumeMount{{
+		ReadOnly:  false,
+		Name:      "nsm-coredns-volume",
+		MountPath: "/etc/coredns",
+	}}
+	volmSource := corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{
+			Medium:    corev1.StorageMediumDefault,
+			SizeLimit: nil,
+		},
+	}
+	volmCfgMap := nsmcorednsenv.UseConfigmap.GetStringOrDefault("")
+	if (volmCfgMap != "") {
+		volmMount = []corev1.VolumeMount{{
+			ReadOnly:  false,
+			Name:      "nsm-coredns-volume",
+			MountPath: "/etc/coredns/Corefile",
+			SubPath: "Corefile",
+		}}
+		volmSource = corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: volmCfgMap},
+			},
+		}
+	}
 	patch = append(patch, addContainer(tuple.spec,
 		[]corev1.Container{
 			{
@@ -66,11 +93,7 @@ func createDNSPatch(tuple *podSpecAndMeta, annotationValue string) (patch []patc
 						Value: annotationValue,
 					},
 				},
-				VolumeMounts: []corev1.VolumeMount{{
-					ReadOnly:  false,
-					Name:      "nsm-coredns-volume",
-					MountPath: "/etc/coredns",
-				}},
+				VolumeMounts: volmMount,
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
 						"networkservicemesh.io/socket": resource.MustParse("1"),
@@ -81,12 +104,7 @@ func createDNSPatch(tuple *podSpecAndMeta, annotationValue string) (patch []patc
 	patch = append(patch, addVolume(tuple.spec,
 		[]corev1.Volume{{
 			Name: "nsm-coredns-volume",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{
-					Medium:    corev1.StorageMediumDefault,
-					SizeLimit: nil,
-				},
-			},
+			VolumeSource: volmSource,
 		}})...)
 	patch = append(patch, replaceDNSConfig()...)
 	patch = append(patch, replaceDNSPolicy()...)
@@ -155,7 +173,8 @@ func replaceDNSConfig() []patchOperation {
 		Op:   "replace",
 		Path: dnsConfigPath,
 		Value: &corev1.PodDNSConfig{
-			Nameservers: []string{"127.0.0.1"},
+			//Nameservers: []string{"127.0.0.1"},
+			Nameservers: nsmcorednsenv.OverrideNSMDNSServer.GetStringListValueOrDefault("127.0.0.1"),
 			Searches:    env.DNSSearchDomainsPatchEnv.GetStringListValueOrDefault(defaultDNSSearchDomains()...),
 			Options: []corev1.PodDNSConfigOption{
 				{

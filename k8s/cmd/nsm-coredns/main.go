@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
+	"github.com/networkservicemesh/networkservicemesh/k8s/cmd/nsm-coredns/env"
+	"github.com/networkservicemesh/networkservicemesh/utils/caddyfile"
 	"os"
 	"strings"
-
-	"github.com/networkservicemesh/networkservicemesh/utils/caddyfile"
-
-	"github.com/networkservicemesh/networkservicemesh/k8s/cmd/nsm-coredns/env"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/coremain"
@@ -31,7 +29,8 @@ func main() {
 	if env.UseUpdateAPIEnv.GetBooleanOrDefault(false) {
 		path := parseCorefilePath()
 		file := caddyfile.NewCaddyfile(path)
-		file.WriteScope(".").Write("log").Write(fmt.Sprintf("fanout %v", strings.Join(defaultBasicDNSConfig().DnsServerIps, " ")))
+		file.WriteScope(".").Write(fmt.Sprintf("fanout %v", strings.Join(defaultBasicDNSConfig().DnsServerIps, " "))).Write("log")
+		//file.WriteScope(".").Write("log").Write(fmt.Sprintf("fanout %v", strings.Join(defaultBasicDNSConfig().DnsServerIps, " ")))
 		err := file.Save()
 		fmt.Println(file.String())
 		if err != nil {

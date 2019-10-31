@@ -9,4 +9,6 @@ const (
 	UpdateAPIClientSock = utils.EnvVar("UPDATE_API_CLIENT_SOCKET")
 	//DefaultDNSServerIPList using for configuring default config
 	DefaultDNSServerIPList = utils.EnvVar("UPDATE_API_DEFAULT_DNS_SERVER")
+	OverrideNSMDNSServer = utils.EnvVar("UPDATE_API_OVERRIDE_NSM_DNS_SERVER")
+	UseConfigmap = utils.EnvVar("USE_CONFIGMAP")
 )

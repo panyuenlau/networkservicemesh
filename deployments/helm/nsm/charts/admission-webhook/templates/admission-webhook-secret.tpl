@@ -14,6 +14,25 @@ data:
   key.pem: {{ $cert.Key | b64enc }}
   cert.pem: {{ $cert.Cert | b64enc }}
 ---
+# Not in namespace: {{ .Release.Namespace }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nsm-coredns-cfg
+data:
+  Corefile: |
+    {{- range .Values.dnsAltZones }}
+    {{ .zone }} {
+       forward . {{ .server }}
+       log
+    }
+    {{- end }}
+    . {
+       forward . {{ .Values.dnsServer }}
+       log
+    }
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,6 +64,14 @@ spec:
               value: jaeger.nsm-system
             - name: JAEGER_AGENT_PORT
               value: "6831"
+{{- end }}
+            - name: USE_UPDATE_API
+              value: "false"
+            - name: USE_CONFIGMAP
+              value: "nsm-coredns-cfg"
+{{- if .Values.global.OverrideDnsServers }}
+            - name: UPDATE_API_OVERRIDE_NSM_DNS_SERVER
+              value: {{ .Values.global.OverrideDnsServers | quote }}
 {{- end }}
 {{- if .Values.global.ExtraDnsServers }}
             - name: UPDATE_API_DEFAULT_DNS_SERVER
