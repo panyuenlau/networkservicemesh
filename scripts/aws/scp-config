@@ -1,0 +1,7 @@
+Host aws-master
+    HostName 18.219.35.252
+    User ec2-user
+
+Host aws-worker
+    HostName 18.222.108.225
+    User ec2-user
