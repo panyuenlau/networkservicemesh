@@ -54,7 +54,7 @@ func main() {
 	}
 	logrus.Info(nscLogFormat, "nsm client: initialization is completed successfully")
 
-	_, err = nsc.ConnectRetry(context.Background(), "nsm", kernel.MECHANISM, "Primary interface", client.ConnectionRetry, client.RequestDelay)
+	_, err = nsc.ConnectRetry(context.Background(), "", "", "", "nsm", kernel.MECHANISM,"Primary interface", nil, client.ConnectionRetry, client.RequestDelay)
 	if err != nil {
 		logrus.Fatalf(nscLogWithParamFormat, "Failed to connect", err)
 	}
