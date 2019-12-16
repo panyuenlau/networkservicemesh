@@ -147,6 +147,7 @@ func (cce *endpointService) createLocalNSERequest(endpoint *registry.NSERegistra
 					Context:                localDst.GetContext(),
 					Labels:                 localDst.GetLabels(),
 					NetworkServiceManagers: []string{cce.model.GetNsm().GetName()},
+					NetworkServiceEndpointName: endpoint.NetworkServiceEndpoint.GetName(),
 				},
 				MechanismPreferences: localM,
 			}
@@ -158,6 +159,7 @@ func (cce *endpointService) createLocalNSERequest(endpoint *registry.NSERegistra
 			Id:                     cce.model.ConnectionID(), //NSMgr assign ID for local Endpoint connections
 			NetworkService:         endpoint.GetNetworkService().GetName(),
 			NetworkServiceManagers: []string{cce.model.GetNsm().GetName()},
+			NetworkServiceEndpointName: endpoint.NetworkServiceEndpoint.GetName(),
 			Context:                requestConn.GetContext(),
 			Labels:                 requestConn.GetLabels(),
 		},

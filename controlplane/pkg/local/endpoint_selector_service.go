@@ -261,7 +261,7 @@ func (cce *endpointSelectorService) prepareRequest(ctx context.Context, request 
 	if nseConn.GetContext() == nil {
 		nseConn.Context = &connectioncontext.ConnectionContext{}
 	}
-
+	nseConn.NetworkServiceEndpointName = endpoint.NetworkServiceEndpoint.GetName()
 	newRequest.Connection = nseConn
 	return newRequest, endpoint, nil
 }
