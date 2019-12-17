@@ -58,7 +58,7 @@ func (nsmcl *NsmClientList) ConnectRetry(ctx context.Context, name, mechanism, d
 			entry.client.OutgoingNscLabels[connection.NamespaceKey] == "" {
 			entry.client.OutgoingNscLabels[connection.NamespaceKey] = entry.client.NsmConnection.Configuration.Namespace
 		}
-		conn, err := entry.client.ConnectRetry(ctx, "", "", "", name+strconv.Itoa(idx), mechanism, description, entry.client.NsmConnection.Configuration.Routes, retryCount, retryDelay)
+		conn, err := entry.client.ConnectRetry(ctx, name+strconv.Itoa(idx), mechanism, description, retryCount, retryDelay)
 		if err != nil {
 			return err
 		}
