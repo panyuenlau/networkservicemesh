@@ -34,6 +34,7 @@ func (nsem *nseManager) GetEndpoint(ctx context.Context, requestConnection *conn
 	myNsemName := nsem.model.GetNsm().GetName()
 	targetNsemName := requestConnection.GetDestinationNetworkServiceManagerName()
 	span.LogObject("targetEndpoint", targetEndpoint)
+	span.LogObject("targetNsemName", targetNsemName)
 	if len(targetEndpoint) > 0 {
 		if len(targetNsemName) > 0 && myNsemName == targetNsemName {
 			endpoint := nsem.model.GetEndpoint(targetEndpoint)
@@ -61,23 +62,34 @@ func (nsem *nseManager) GetEndpoint(ctx context.Context, requestConnection *conn
 		span.LogError(err)
 		return nil, err
 	}
-	endpoints := nsem.filterEndpoints(endpointResponse.GetNetworkServiceEndpoints(), endpointResponse.NetworkServiceManagers, ignoreEndpoints)
+	var endpoint *registry.NetworkServiceEndpoint
+	if len(targetEndpoint) > 0 {
+		endpoint = nsem.getTargetEndpoint(endpointResponse.GetNetworkServiceEndpoints(), targetEndpoint, targetNsemName)
+		if endpoint == nil {
+			err = errors.Errorf("failed to find targeted NSE %s (NSMgr=%s) for NetworkService %s. Checked: %d endpoints",
+				targetEndpoint, targetNsemName, requestConnection.GetNetworkService(), len(endpointResponse.GetNetworkServiceEndpoints()))
+			span.LogError(err)
+			return nil, err
+		}
+	} else {
+		endpoints := nsem.filterEndpoints(endpointResponse.GetNetworkServiceEndpoints(), endpointResponse.NetworkServiceManagers, ignoreEndpoints)
 
-	if len(endpoints) == 0 {
-		err = errors.Errorf("failed to find NSE for NetworkService %s. Checked: %d of total NSEs: %d",
-			requestConnection.GetNetworkService(), len(ignoreEndpoints), len(endpoints))
-		span.LogError(err)
-		return nil, err
+		if len(endpoints) == 0 {
+			err = errors.Errorf("failed to find NSE for NetworkService %s. Checked: %d of total NSEs: %d",
+				requestConnection.GetNetworkService(), len(ignoreEndpoints), len(endpoints))
+			span.LogError(err)
+			return nil, err
+		}
+
+		endpoint = nsem.model.GetSelector().SelectEndpoint(requestConnection, endpointResponse.GetNetworkService(), endpoints)
+		if endpoint == nil {
+			err = errors.Errorf("failed to find NSE for NetworkService %s. Checked: %d of total NSEs: %d",
+				requestConnection.GetNetworkService(), len(ignoreEndpoints), len(endpoints))
+			span.LogError(err)
+			return nil, err
+		}
 	}
-
-	endpoint := nsem.model.GetSelector().SelectEndpoint(requestConnection, endpointResponse.GetNetworkService(), endpoints)
-	if endpoint == nil {
-		err = errors.Errorf("failed to find NSE for NetworkService %s. Checked: %d of total NSEs: %d",
-			requestConnection.GetNetworkService(), len(ignoreEndpoints), len(endpoints))
-		span.LogError(err)
-		return nil, err
-	}
-
+	span.LogObject("endpoint", endpoint)
 	return &registry.NSERegistration{
 		NetworkServiceManager:  endpointResponse.GetNetworkServiceManagers()[endpoint.GetNetworkServiceManagerName()],
 		NetworkServiceEndpoint: endpoint,
@@ -151,4 +163,14 @@ func (nsem *nseManager) filterEndpoints(endpoints []*registry.NetworkServiceEndp
 		}
 	}
 	return result
+}
+
+func (nsem *nseManager) getTargetEndpoint(endpoints []*registry.NetworkServiceEndpoint, targetEndpoint, targetNSManager string) *registry.NetworkServiceEndpoint {
+	// find matching endpoint in list
+	for _, candidate := range endpoints {
+		if candidate.GetName() == targetEndpoint {
+			return candidate
+		}
+	}
+	return nil
 }

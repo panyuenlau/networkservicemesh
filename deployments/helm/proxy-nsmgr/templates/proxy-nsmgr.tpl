@@ -29,7 +29,7 @@ spec:
               value: "false"
 {{- end }}
             - name: PROXY_NSMD_K8S_REMOTE_PORT
-              value: "5005"
+              value: {{ .Values.remoteNsrPort | quote }}
         - name: proxy-nsmd-k8s
           image: {{ .Values.registry }}/{{ .Values.org }}/proxy-nsmd-k8s:{{ .Values.tag }}
           imagePullPolicy: {{ .Values.pullPolicy }}
@@ -56,7 +56,7 @@ spec:
               value: "6831"
 {{- end }}
             - name: PROXY_NSMD_K8S_REMOTE_PORT
-              value: "5005"
+              value: {{ .Values.remoteNsrPort | quote }}
 ---
 apiVersion: v1
 kind: Service
@@ -66,12 +66,15 @@ metadata:
     app: proxy-nsmgr-daemonset
   namespace: {{ .Release.Namespace }}
 spec:
+  type: NodePort
   ports:
-    - name: pnsmd
+    - name: pnsmr
       port: 5005
+      nodePort: 31505
       protocol: TCP
-    - name: pnsr
+    - name: pnsmd
       port: 5006
+      nodePort: 31506
       protocol: TCP
   selector:
     app: proxy-nsmgr-daemonset

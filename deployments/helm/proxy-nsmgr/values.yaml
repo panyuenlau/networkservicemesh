@@ -8,6 +8,8 @@ org: networkservicemesh
 tag: master
 pullPolicy: IfNotPresent
 
+remoteNsrPort: 5005
+
 global:
   # set to true to enable Jaeger tracing for NSM components
   JaegerTracing: false
