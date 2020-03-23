@@ -56,7 +56,7 @@ func (rs *nseRegistryService) RegisterNSE(ctx context.Context, request *registry
 
 	logger.Infof("Received RegisterNSE(%v)", request)
 
-	request = prepareNSERequest(request)
+	//request = prepareNSERequest(request)
 
 	_, err := rs.cache.AddNetworkServiceEndpoint(request)
 	if err != nil {
@@ -82,7 +82,7 @@ func (rs *nseRegistryService) BulkRegisterNSE(srv registry.NetworkServiceRegistr
 
 		logger.Infof("Received BulkRegisterNSE request: %v", request)
 
-		request = prepareNSERequest(request)
+		//request = prepareNSERequest(request)
 
 		_, err = rs.cache.UpdateNetworkServiceEndpoint(request)
 		if err != nil {
