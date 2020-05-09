@@ -3,12 +3,12 @@ package tests
 import (
 	"context"
 
-	"github.com/ligato/vpp-agent/api/configurator"
-	"github.com/mesos/mesos-go/api/v0/examples/Godeps/_workspace/src/github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"go.ligato.io/vpp-agent/v3/proto/ligato/configurator"
 
 	"github.com/networkservicemesh/networkservicemesh/sdk/vppagent"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"

@@ -15,6 +15,16 @@ spec:
     spec:
       hostPID: true
       serviceAccount: nsc-acc
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: networkservicemesh.io/app
+                    operator: In
+                    values:
+                      - vppagent-nsc
+              topologyKey: "kubernetes.io/hostname"
       containers:
         - name: vppagent-nsc
           image: {{ .Values.registry }}/{{ .Values.org }}/vpp-test-common:{{ .Values.tag }}
@@ -22,9 +32,9 @@ spec:
           env:
             - name: TEST_APPLICATION
               value: "vppagent-nsc"
-            - name: OUTGOING_NSC_LABELS
+            - name: CLIENT_LABELS
               value: "app=icmp"
-            - name: OUTGOING_NSC_NAME
+            - name: CLIENT_NETWORK_SERVICE
               value: "icmp-responder"
           resources:
             limits:

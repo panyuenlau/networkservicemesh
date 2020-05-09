@@ -1,6 +1,6 @@
 // +build interdomain
 
-package nsmd_integration_tests
+package integration
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func TestInterdomainNSEHealLocal(t *testing.T) {
 	testInterdomainNSEHeal(t, 2, 2, map[string]int{
 		"icmp-responder-nse-1": 0,
 		"icmp-responder-nse-2": 0,
-	}, kubetest.HealTestingPodFixture(g))
+	}, kubetest.DefaultTestingPodFixture(g))
 }
 
 func TestInterdomainNSEHealRemote(t *testing.T) {
@@ -40,7 +40,7 @@ func TestInterdomainNSEHealRemote(t *testing.T) {
 	testInterdomainNSEHeal(t, 2, 2, map[string]int{
 		"icmp-responder-nse-1": 1,
 		"icmp-responder-nse-2": 1,
-	}, kubetest.HealTestingPodFixture(g))
+	}, kubetest.DefaultTestingPodFixture(g))
 }
 
 func TestInterdomainNSEHealLocalToRemote(t *testing.T) {
@@ -54,7 +54,7 @@ func TestInterdomainNSEHealLocalToRemote(t *testing.T) {
 	testInterdomainNSEHeal(t, 2, 2, map[string]int{
 		"icmp-responder-nse-1": 0,
 		"icmp-responder-nse-2": 1,
-	}, kubetest.HealTestingPodFixture(g))
+	}, kubetest.DefaultTestingPodFixture(g))
 }
 
 func testInterdomainNSEHeal(t *testing.T, clustersCount int, nodesCount int, affinity map[string]int, fixture kubetest.TestingPodFixture) {
@@ -69,7 +69,7 @@ func testInterdomainNSEHeal(t *testing.T, clustersCount int, nodesCount int, aff
 		k8s, err := kubetest.NewK8sForConfig(g, true, kubeconfig)
 		g.Expect(err).To(BeNil())
 		defer k8s.Cleanup()
-		defer kubetest.MakeLogsSnapshot(k8s, t)
+		defer k8s.SaveTestArtifacts(t)
 
 		config := []*pods.NSMgrPodConfig{}
 
@@ -109,8 +109,8 @@ func testInterdomainNSEHeal(t *testing.T, clustersCount int, nodesCount int, aff
 	}
 
 	nscPodNode := kubetest.DeployNSCWithEnv(k8ss[0].K8s, k8ss[0].NodesSetup[0].Node, "nsc-1", defaultTimeout, map[string]string{
-		"OUTGOING_NSC_LABELS": "app=icmp",
-		"OUTGOING_NSC_NAME":   fmt.Sprintf("icmp-responder@%s", nseExternalIP),
+		"CLIENT_LABELS":          "app=icmp",
+		"CLIENT_NETWORK_SERVICE": fmt.Sprintf("icmp-responder@%s", nseExternalIP),
 	})
 
 	kubetest.CheckNSC(k8ss[0].K8s, nscPodNode)
@@ -125,5 +125,5 @@ func testInterdomainNSEHeal(t *testing.T, clustersCount int, nodesCount int, aff
 	logrus.Infof("Waiting for connection recovery...")
 	k8ss[0].K8s.WaitLogsContains(k8ss[0].NodesSetup[0].Nsmd, "nsmd", "Heal: Connection recovered:", defaultTimeout)
 
-	kubetest.HealTestingPodFixture(g).CheckNsc(k8ss[0].K8s, nscPodNode)
+	kubetest.DefaultTestingPodFixture(g).CheckNsc(k8ss[0].K8s, nscPodNode)
 }

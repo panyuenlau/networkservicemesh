@@ -1,6 +1,6 @@
 // +build bench
 
-package nsmd_integration_tests
+package integration
 
 import (
 	"strconv"
@@ -66,7 +66,7 @@ func testOneTimeConnection(t *testing.T, nodeCount int, nscDeploy, icmpDeploy ku
 	defer k8s.Cleanup()
 
 	g.Expect(err).To(BeNil())
-	defer kubetest.MakeLogsSnapshot(k8s, t)
+	defer k8s.SaveTestArtifacts(t)
 	nodes := createNodes(g, k8s, nodeCount)
 	icmpDeploy(k8s, nodes[nodeCount-1].Node, icmpDefaultName, defaultTimeout)
 
@@ -89,7 +89,7 @@ func testMovingConnection(t *testing.T, nodeCount int, nscDeploy, icmpDeploy kub
 	defer k8s.Cleanup()
 
 	g.Expect(err).To(BeNil())
-	defer kubetest.MakeLogsSnapshot(k8s, t)
+	defer k8s.SaveTestArtifacts(t)
 	nodes := createNodes(g, k8s, nodeCount)
 
 	icmpDeploy(k8s, nodes[nodeCount-1].Node, icmpDefaultName, defaultTimeout)
@@ -115,7 +115,7 @@ func testOneToOneConnection(t *testing.T, nodeCount int, nscDeploy, icmpDeploy k
 	defer k8s.Cleanup()
 
 	g.Expect(err).To(BeNil())
-	defer kubetest.MakeLogsSnapshot(k8s, t)
+	defer k8s.SaveTestArtifacts(t)
 	nodes := createNodes(g, k8s, nodeCount)
 	doneChannel := make(chan nscPingResult, 1)
 
@@ -138,7 +138,7 @@ func createNodes(g *WithT, k8s *kubetest.K8s, count int) []*kubetest.NodeConf {
 	nodes, err := kubetest.SetupNodesConfig(k8s, count, defaultTimeout, kubetest.NoHealNSMgrPodConfig(k8s), k8s.GetK8sNamespace())
 	g.Expect(err).To(BeNil())
 
-	g.Expect(len(nodes), count)
+	g.Expect(len(nodes)).Should(Equal(count))
 	return nodes
 }
 

@@ -6,6 +6,8 @@ import (
 )
 
 const (
+	//DefaultKubeletAdminClusterRole default kubelet api admin cluster role name
+	DefaultKubeletAdminClusterRole = "system:kubelet-api-admin"
 	//DefaultAccount creates on namespace creating
 	DefaultAccount = "default"
 	// EnvForwardingPlane is the environment variable for configuring the forwarding plane
@@ -22,6 +24,8 @@ const (
 	NSCServiceAccount = "nsc-acc"
 	// NSMgrServiceAccount service account for Network Service Managers
 	NSMgrServiceAccount = "nsmgr-acc"
+	// NSMRSServiceAccount service account for Network Service Manager Registry Server
+	NSMRSServiceAccount = "nsmrs-acc"
 	// ForwardPlaneServiceAccount service account for Forwarding Plane
 	ForwardPlaneServiceAccount = "forward-plane-acc"
 )

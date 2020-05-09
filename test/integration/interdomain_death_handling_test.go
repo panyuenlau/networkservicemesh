@@ -1,6 +1,6 @@
 // +build interdomain
 
-package nsmd_integration_tests
+package integration
 
 import (
 	"fmt"
@@ -58,7 +58,7 @@ func testInterdomainNSMDies(t *testing.T, clustersCount int, killSrc bool) {
 		k8s, err := kubetest.NewK8sForConfig(g, true, kubeconfig)
 		g.Expect(err).To(BeNil())
 		defer k8s.Cleanup()
-		defer kubetest.MakeLogsSnapshot(k8s, t)
+		defer k8s.SaveTestArtifacts(t)
 
 		nseNoHealPodConfig.Namespace = k8s.GetK8sNamespace()
 		nseNoHealPodConfig.ForwarderVariables = kubetest.DefaultForwarderVariables(k8s.GetForwardingPlane())
@@ -91,8 +91,8 @@ func testInterdomainNSMDies(t *testing.T, clustersCount int, killSrc bool) {
 	}
 
 	nscPodNode := kubetest.DeployNSCWithEnv(k8ss[0].K8s, k8ss[0].NodesSetup[0].Node, "nsc-1", defaultTimeout, map[string]string{
-		"OUTGOING_NSC_LABELS": "app=icmp",
-		"OUTGOING_NSC_NAME":   fmt.Sprintf("icmp-responder@%s", nseExternalIP),
+		"CLIENT_LABELS":          "app=icmp",
+		"CLIENT_NETWORK_SERVICE": fmt.Sprintf("icmp-responder@%s", nseExternalIP),
 	})
 
 	kubetest.CheckNSC(k8ss[0].K8s, nscPodNode)

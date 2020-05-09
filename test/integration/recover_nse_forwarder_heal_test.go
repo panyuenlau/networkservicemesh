@@ -1,6 +1,6 @@
 // +build recover
 
-package nsmd_integration_tests
+package integration
 
 import (
 	"fmt"
@@ -43,9 +43,9 @@ func TestForwarderHealMultiNodesLocal(t *testing.T) {
 	}
 
 	g := NewWithT(t)
-
-	testForwarderHeal(t, 0, 2, kubetest.HealTestingPodFixture(g))
+	testForwarderHeal(t, 0, 2, kubetest.DefaultTestingPodFixture(g))
 }
+
 func TestForwarderHealMultiNodesRemote(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skip, please run without -short")
@@ -54,7 +54,7 @@ func TestForwarderHealMultiNodesRemote(t *testing.T) {
 
 	g := NewWithT(t)
 
-	testForwarderHeal(t, 1, 2, kubetest.HealTestingPodFixture(g))
+	testForwarderHeal(t, 1, 2, kubetest.DefaultTestingPodFixture(g))
 }
 
 /**
@@ -72,7 +72,7 @@ func testForwarderHeal(t *testing.T, killForwarderIndex, nodesCount int, fixture
 	// Deploy open tracing to see what happening.
 	nodes_setup, err := kubetest.SetupNodes(k8s, nodesCount, defaultTimeout)
 	g.Expect(err).To(BeNil())
-	defer kubetest.MakeLogsSnapshot(k8s, t)
+	defer k8s.SaveTestArtifacts(t)
 	// Run ICMP on latest node
 	fixture.DeployNse(k8s, nodes_setup[nodesCount-1].Node, "icmp-responder-nse-1", defaultTimeout)
 

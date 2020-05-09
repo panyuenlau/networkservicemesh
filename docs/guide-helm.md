@@ -17,7 +17,7 @@ This document will show you how to use `Helm` for `NSM` installation.
 Installing NSM with helm in the `nsm-system` namespace is as easy as:
 
 ```bash
-$ helm install --namespace=nsm-system deployments/helm/nsm
+$ helm install deployments/helm/nsm
 ```
 
 *Note: in case of `Error: no available release name found` do (according to [issue](https://github.com/helm/helm/issues/4412)):*
@@ -31,23 +31,34 @@ kubectl patch deploy --namespace kube-system tiller-deploy -p '{"spec":{"templat
 After installation of NSM on cluster you can install examples to check correctness of cluster configuration.
 
 Install simple NSC and icmp-responder:
-```
-helm install deployments/helm/icmp-responder
+```bash
+$ helm install deployments/helm/endpoint
+$ helm install deployments/helm/client
 ```
 
 Install vppagent-nsc and vppagent-icmp-responder:
-```
-helm install deployments/helm/vpp-icmp-responder
+```bash
+$ helm install deployments/helm/vpp-icmp-responder
 ```
 
 Install vpn-gateway-nsc, vpp-gateway-nse and vppagent-firewall-nse:
-```
-helm install deployments/helm/vpn
+```bash
+$ helm install deployments/helm/vpn
 ```
 
-Install skydive, crossconnect-monitor and jaeger:
+Install crossconnect-monitor:
+```bash
+$ helm install deployments/helm/crossconnect-monitor
 ```
-helm install --namespace=nsm-system deployments/helm/nsmd-monitoring
+
+Install skydive:
+```bash
+$ helm install deployments/helm/skydive
+```
+
+Install jaeger:
+```bash
+$ helm install deployments/helm/jaeger
 ```
 
 ## Values specification

@@ -3,6 +3,16 @@
     {
       "selectors": [
         {
+          "type": "k8s_sat",
+          "value": "agent_sa:spire-agent"
+        }
+      ],
+      "spiffe_id": "spiffe://test.com/spire-agent",
+      "parent_id": "spiffe://test.com/spire/server"
+    },
+    {
+      "selectors": [
+        {
           "type": "k8s",
           "value": "sa:nsmgr-acc"
         }
@@ -38,6 +48,16 @@
         }
       ],
       "spiffe_id": "spiffe://test.com/forward-plane",
+      "parent_id": "spiffe://test.com/spire-agent"
+    },
+    {
+      "selectors": [
+        {
+          "type": "k8s",
+          "value": "sa:nsmrs-acc"
+        }
+      ],
+      "spiffe_id": "spiffe://test.com/nsmrs",
       "parent_id": "spiffe://test.com/spire-agent"
     }
   ]

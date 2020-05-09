@@ -10,6 +10,7 @@ pullPolicy: IfNotPresent
 
 forwardingPlane: vpp
 insecure: false
+preferredRemoteMechanism:
 
 vpp:
   image: vppagent-forwarder
@@ -26,3 +27,5 @@ spire:
 global:
   # set to true to enable Jaeger tracing for NSM components
   JaegerTracing: false
+
+metricsCollectorEnabled: false

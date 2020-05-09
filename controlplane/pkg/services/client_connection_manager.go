@@ -27,7 +27,8 @@ import (
 
 const (
 	// deletedConnectionLifetime -  3 minutes to handle connections delete and update
-	deletedConnectionLifetime = time.Minute * 3
+	deletedConnectionLifetime    = time.Minute * 3
+	connectionStateCheckInterval = 5 * time.Second
 )
 
 type managedClientConnection struct {
@@ -80,8 +81,18 @@ func (m *ClientConnectionManager) UpdateXcon(ctx context.Context, cc nsm.ClientC
 
 	if src := newXcon.GetLocalSource(); src != nil && src.State == connection.State_DOWN {
 		logger.Info("ClientConnection src state is down. Closing.")
-		err := m.manager.CloseConnection(ctx, cc)
-		span.LogError(err)
+		go func() {
+			for {
+				actualConn := m.model.GetClientConnection(cc.GetID())
+				if actualConn == nil || !m.isConnectionPending(actualConn) {
+					err := m.manager.CloseConnection(ctx, cc)
+					span.LogError(err)
+					return
+				}
+				logger.Warnf("Trying to close connection %v in bad state (%v)...", cc.GetID(), m.model.GetClientConnection(cc.GetID()).ConnectionState)
+				<-time.After(connectionStateCheckInterval)
+			}
+		}()
 		return
 	}
 
@@ -367,10 +378,10 @@ func (m *ClientConnectionManager) GetClientConnectionBySource(networkServiceMana
 }
 
 // UpdateRemoteMonitorDone - update remote monitor connection lost
-func (m *ClientConnectionManager) UpdateRemoteMonitorDone(networkServiceManagers []string) {
+func (m *ClientConnectionManager) UpdateRemoteMonitorDone(networkServiceManagers []*connection.PathSegment) {
 	// We need to be sure there is no active connections from selected Remote NSM.
 	if len(networkServiceManagers) >= 1 {
-		for _, conn := range m.GetClientConnectionBySource(networkServiceManagers[0]) {
+		for _, conn := range m.GetClientConnectionBySource(networkServiceManagers[0].GetName()) {
 			// Since remote monitor is done, and if connection is not closed we need to close them.
 			m.manager.RemoteConnectionLost(context.Background(), conn)
 		}

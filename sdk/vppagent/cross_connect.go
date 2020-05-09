@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/ligato/vpp-agent/api/configurator"
-	"github.com/ligato/vpp-agent/api/models/vpp"
-	l2 "github.com/ligato/vpp-agent/api/models/vpp/l2"
 	"github.com/pkg/errors"
+	"go.ligato.io/vpp-agent/v3/proto/ligato/configurator"
+	"go.ligato.io/vpp-agent/v3/proto/ligato/vpp"
+	l2 "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/l2"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
@@ -32,9 +32,13 @@ func (xc *XConnect) Request(ctx context.Context, request *networkservice.Network
 		return nil, err
 	}
 
-	if err := xc.appendDataChange(vppAgentConfig, vppAgentConfig.VppConfig.Interfaces[0].Name, vppAgentConfig.VppConfig.Interfaces[1].Name); err != nil {
-		return nil, err
+	// For connections mechanisms with xconnect required (For example SRv6 does not require xconnect)
+	if len(vppAgentConfig.VppConfig.Interfaces) >= 2 {
+		if err := xc.appendDataChange(vppAgentConfig, vppAgentConfig.VppConfig.Interfaces[0].Name, vppAgentConfig.VppConfig.Interfaces[1].Name); err != nil {
+			return nil, err
+		}
 	}
+
 	if endpoint.Next(ctx) != nil {
 		return endpoint.Next(ctx).Request(ctx, request)
 	}
@@ -54,9 +58,13 @@ func (xc *XConnect) Close(ctx context.Context, connection *connection.Connection
 		return nil, err
 	}
 
-	if err := xc.appendDataChange(vppAgentConfig, vppAgentConfig.VppConfig.Interfaces[0].Name, vppAgentConfig.VppConfig.Interfaces[1].Name); err != nil {
-		return nil, err
+	// For connections mechanisms with xconnect required (For example SRv6 does not require xconnect)
+	if len(vppAgentConfig.VppConfig.Interfaces) >= 2 {
+		if err := xc.appendDataChange(vppAgentConfig, vppAgentConfig.VppConfig.Interfaces[0].Name, vppAgentConfig.VppConfig.Interfaces[1].Name); err != nil {
+			return nil, err
+		}
 	}
+
 	if endpoint.Next(ctx) != nil {
 		return endpoint.Next(ctx).Close(ctx, connection)
 	}

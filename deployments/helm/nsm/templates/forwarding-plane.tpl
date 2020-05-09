@@ -22,19 +22,15 @@ spec:
           imagePullPolicy: {{ .Values.pullPolicy }}
           env:
             - name: INSECURE
-{{- if .Values.insecure }}
-              value: "true"
-{{- else }}
-              value: "false"
-{{- end }}
-{{- if .Values.global.JaegerTracing }}
+              value: {{ .Values.insecure | default false | quote }}
+            - name: METRICS_COLLECTOR_ENABLED
+              value: {{ .Values.metricsCollectorEnabled | default false | quote }}
             - name: TRACER_ENABLED
-              value: "true"
+              value: {{ .Values.global.JaegerTracing | default false | quote }}
             - name: JAEGER_AGENT_HOST
               value: jaeger.nsm-system
             - name: JAEGER_AGENT_PORT
               value: "6831"
-{{- end }}
             - name: NSM_FORWARDER_SRC_IP
               valueFrom:
                 fieldRef:
@@ -61,11 +57,11 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 3
           {{- if (index .Values $fp).resources }}
-            resources:
-              limits:
-                cpu: {{ (index .Values $fp).resources.limitCPU }}
-              requests:
-                cpu: {{ (index .Values $fp).resources.requestsCPU }}
+          resources:
+            limits:
+              cpu: {{ (index .Values $fp).resources.limitCPU }}
+            requests:
+              cpu: {{ (index .Values $fp).resources.requestsCPU }}
           {{- end }}
       volumes:
         - hostPath:

@@ -14,8 +14,9 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"testing"
 	"time"
+
+	"github.com/networkservicemesh/networkservicemesh/test/kubetest/artifacts"
 
 	"github.com/networkservicemesh/networkservicemesh/pkg/security"
 
@@ -44,6 +45,7 @@ import (
 	"github.com/networkservicemesh/networkservicemesh/sdk/prefix_pool"
 	"github.com/networkservicemesh/networkservicemesh/test/kubetest/jaeger"
 	"github.com/networkservicemesh/networkservicemesh/test/kubetest/pods"
+	nsmrbac "github.com/networkservicemesh/networkservicemesh/test/kubetest/rbac"
 )
 
 type NodeConf struct {
@@ -77,7 +79,11 @@ func SetupNodes(k8s *K8s, nodesCount int, timeout time.Duration) ([]*NodeConf, e
 
 //FindJaegerPod returns jaeger pod or nil
 func FindJaegerPod(k8s *K8s) *v1.Pod {
-	pods := k8s.ListPods()
+	pods, err := k8s.ListPods()
+	if err != nil {
+		logrus.Errorf("Can not find jaeger pod %v", err.Error())
+		return nil
+	}
 	for i := range pods {
 		p := &pods[i]
 		if strings.Contains(p.Name, "jaeger") {
@@ -109,14 +115,27 @@ func DeployCorefile(k8s *K8s, name, content string) error {
 // SetupNodesConfig - Setup NSMgr and Forwarder for particular number of nodes in cluster
 func SetupNodesConfig(k8s *K8s, nodesCount int, timeout time.Duration, conf []*pods.NSMgrPodConfig, namespace string) ([]*NodeConf, error) {
 	nodes := k8s.GetNodesWait(nodesCount, timeout)
-	var jaegerPod *v1.Pod
 	k8s.g.Expect(len(nodes) >= nodesCount).To(Equal(true),
 		"At least one Kubernetes node is required for this test")
-	if jaeger.ShouldStoreJaegerTraces() {
-		jaegerPod = k8s.CreatePod(pods.Jaeger())
-		k8s.WaitLogsContains(jaegerPod, jaegerPod.Spec.Containers[0].Name, "Starting HTTP server", timeout)
-		jaeger.JaegerAgentHost.Set(jaegerPod.Status.PodIP)
+	if artifacts.NeedToSave() {
+		if !jaeger.UseService.GetBooleanOrDefault(false) {
+			jaegerPod := k8s.CreatePod(pods.Jaeger())
+			jaeger.AgentHost.Set(jaegerPod.Status.PodIP)
+			k8s.WaitLogsContains(jaegerPod, jaegerPod.Spec.Containers[0].Name, "Starting HTTP server", timeout)
+		} else if jaeger.AgentHost.StringValue() == "" {
+			template := pods.Jaeger()
+			template.Spec.NodeSelector = map[string]string{
+				"kubernetes.io/hostname": nodes[0].Labels["kubernetes.io/hostname"],
+			}
+			jaegerPod := k8s.CreatePod(template)
+			_, err := k8s.CreateService(pods.JaegerService(jaegerPod), k8s.namespace)
+			k8s.g.Expect(err).Should(BeNil())
+			jaeger.AgentHost.Set(getExternalOrInternalAddress(&nodes[0]))
+			jaeger.AgentPort.Set(jaeger.GetNodePort())
+			k8s.WaitLogsContains(jaegerPod, jaegerPod.Spec.Containers[0].Name, "Starting HTTP server", timeout)
+		}
 	}
+
 	var wg sync.WaitGroup
 	confs := make([]*NodeConf, nodesCount)
 	var resultError error
@@ -179,6 +198,19 @@ func SetupNodesConfig(k8s *K8s, nodesCount int, timeout time.Duration, conf []*p
 	return confs, resultError
 }
 
+func getExternalOrInternalAddress(n *v1.Node) string {
+	internalAddr := ""
+	for i := range n.Status.Addresses {
+		addr := &n.Status.Addresses[i]
+		if addr.Type == v1.NodeExternalIP {
+			return addr.Address
+		} else if addr.Type == v1.NodeInternalIP && internalAddr == "" {
+			internalAddr = addr.Address
+		}
+	}
+	return internalAddr
+}
+
 func deployNSMgrAndForwarder(k8s *K8s, corePods []*v1.Pod, timeout time.Duration) (nsmd, forwarder *v1.Pod, err error) {
 	for _, pod := range corePods {
 		if !k8s.IsPodReady(pod) {
@@ -218,10 +250,20 @@ func WaitNSMgrDeployed(k8s *K8s, nsmd *v1.Pod, timeout time.Duration) {
 
 // DeployProxyNSMgr - Setup Proxy NSMgr on Cluster
 func DeployProxyNSMgr(k8s *K8s, node *v1.Node, name string, timeout time.Duration) (pnsmd *v1.Pod, err error) {
-	startTime := time.Now()
 	template := pods.ProxyNSMgrPod(name, node, k8s.GetK8sNamespace())
+	return deployProxyNSMgr(k8s, template, node, timeout)
+}
 
-	logrus.Infof("Starting Proxy NSMgr %s on node: %s", name, node.Name)
+// DeployProxyNSMgrWithConfig - Setup Proxy NSMgr on Cluster with custom config
+func DeployProxyNSMgrWithConfig(k8s *K8s, node *v1.Node, name string, timeout time.Duration, config *pods.NSMgrPodConfig) (pnsmd *v1.Pod, err error) {
+	template := pods.ProxyNSMgrPodWithConfig(name, node, config)
+	return deployProxyNSMgr(k8s, template, node, timeout)
+}
+
+func deployProxyNSMgr(k8s *K8s, template *v1.Pod, node *v1.Node, timeout time.Duration) (pnsmd *v1.Pod, err error) {
+	startTime := time.Now()
+
+	logrus.Infof("Starting Proxy NSMgr %s on node: %s", template.Name, node.Name)
 	tempPods, err := k8s.CreatePodsRaw(PodStartTimeout, true, template)
 
 	if err != nil {
@@ -248,6 +290,33 @@ func RunProxyNSMgrService(k8s *K8s) func() {
 	}
 }
 
+// DeployNSMRS - Setup NSMRS on Cluster with default config
+func DeployNSMRS(k8s *K8s, node *v1.Node, name string, timeout time.Duration) *v1.Pod {
+	return deployNSMRS(k8s, nodeName(node), name, timeout,
+		pods.NSMRSPod(name, node),
+	)
+}
+
+// DeployNSMRSWithConfig - Setup NSMRS on Cluster
+func DeployNSMRSWithConfig(k8s *K8s, node *v1.Node, name string, timeout time.Duration, config *pods.NSMgrPodConfig) *v1.Pod {
+	return deployNSMRS(k8s, nodeName(node), name, timeout,
+		pods.NSMRSPodWithConfig(name, node, config),
+	)
+}
+
+func deployNSMRS(k8s *K8s, nodeName, name string, timeout time.Duration, template *v1.Pod) *v1.Pod {
+	startTime := time.Now()
+
+	logrus.Infof("Starting NSM Service Registry Server on node: %s", nodeName)
+	nsmrs := k8s.CreatePod(template)
+	k8s.g.Expect(nsmrs.Name).To(Equal(name))
+
+	_ = k8s.WaitLogsContainsRegex(nsmrs, "nsmrs", "Service Registry gRPC API Server: .* is operational", timeout)
+
+	logrus.Printf("NSM Service Registry Server %v started done: %v", name, time.Since(startTime))
+	return nsmrs
+}
+
 // DeployICMP deploys 'icmp-responder-nse' pod with '-routes' flag set
 func DeployICMP(k8s *K8s, node *v1.Node, name string, timeout time.Duration) *v1.Pod {
 	flags := flags.ICMPResponderFlags{
@@ -258,14 +327,14 @@ func DeployICMP(k8s *K8s, node *v1.Node, name string, timeout time.Duration) *v1
 	)
 }
 
-// DeployICMPAndCoredns deploys 'icmp-responder-nse' pod with '-routes', '-dns' flag set. Also injected nsm-coredns server.
+// DeployICMPAndCoredns deploys 'icmp-responder-nse' pod with '-routes', '-dns' flag set. Also injected coredns server.
 func DeployICMPAndCoredns(k8s *K8s, node *v1.Node, name, corednsConfigName string, timeout time.Duration) *v1.Pod {
 	flags := flags.ICMPResponderFlags{
 		Routes: true,
 		DNS:    true,
 	}
 	return deployICMP(k8s, nodeName(node), name, timeout,
-		pods.InjectNSMCoredns(pods.TestCommonPod(name, flags.Commands(), node, defaultICMPEnv(k8s.UseIPv6()), pods.NSEServiceAccount), corednsConfigName),
+		pods.InjectCoredns(pods.TestCommonPod(name, flags.Commands(), node, defaultICMPEnv(k8s.UseIPv6()), pods.NSEServiceAccount), corednsConfigName),
 	)
 }
 
@@ -309,23 +378,22 @@ func DeployUpdatingNSE(k8s *K8s, node *v1.Node, name string, timeout time.Durati
 	)
 }
 
-//DeployMonitoringNSCAndCoredns deploys pod of nsm-dns-monitoring-nsc and nsm-coredns
+//DeployMonitoringNSCAndCoredns deploys pod of nsm-dns-monitoring-nsc and coredns
 func DeployMonitoringNSCAndCoredns(k8s *K8s, node *v1.Node, name string, timeout time.Duration) *v1.Pod {
 	envs := defaultNSCEnv()
-	envs["UPDATE_API_CLIENT_SOCKET"] = "/etc/coredns/client.sock"
 	template := pods.TestCommonPod(name, []string{"/bin/monitoring-dns-nsc"}, node, envs, pods.NSCServiceAccount)
-	pods.InjectNSMCorednsWithSharedFolder(template)
+	pods.InjectCorednsWithSharedFolder(template)
 	result := deployNSC(k8s, nodeName(node), name, "nsc", timeout, template)
-	k8s.WaitLogsContains(result, "nsm-coredns", "CoreDNS-", timeout)
+	k8s.WaitLogsContains(result, "coredns", "CoreDNS-", timeout)
 	return result
 }
 
-// DeployNscAndNsmCoredns deploys pod of default client and nsm-coredns
+// DeployNscAndNsmCoredns deploys pod of default client and coredns
 func DeployNscAndNsmCoredns(k8s *K8s, node *v1.Node, name, corefileName string, timeout time.Duration) *v1.Pod {
 	envs := defaultNSCEnv()
 	envs["UPDATE_API_CLIENT_SOCKET"] = "/etc/coredns/client.sock"
 	return deployNSC(k8s, nodeName(node), name, "nsm-init", timeout,
-		pods.InjectNSMCoredns(pods.NSCPod(name, node, defaultNSCEnv()), corefileName),
+		pods.InjectCoredns(pods.NSCPod(name, node, defaultNSCEnv()), corefileName),
 	)
 }
 
@@ -399,22 +467,22 @@ func InitSpireSecurity(k8s *K8s) func() {
 func defaultICMPEnv(useIPv6 bool) map[string]string {
 	if !useIPv6 {
 		return map[string]string{
-			"ADVERTISE_NSE_NAME":   "icmp-responder",
-			"ADVERTISE_NSE_LABELS": "app=icmp",
-			"IP_ADDRESS":           "172.16.1.0/24",
+			"ENDPOINT_NETWORK_SERVICE": "icmp-responder",
+			"ENDPOINT_LABELS":          "app=icmp",
+			"IP_ADDRESS":               "172.16.1.0/24",
 		}
 	}
 	return map[string]string{
-		"ADVERTISE_NSE_NAME":   "icmp-responder",
-		"ADVERTISE_NSE_LABELS": "app=icmp",
-		"IP_ADDRESS":           "100::/64",
+		"ENDPOINT_NETWORK_SERVICE": "icmp-responder",
+		"ENDPOINT_LABELS":          "app=icmp",
+		"IP_ADDRESS":               "100::/64",
 	}
 }
 
 func defaultNSCEnv() map[string]string {
 	return map[string]string{
-		"OUTGOING_NSC_LABELS": "app=icmp",
-		"OUTGOING_NSC_NAME":   "icmp-responder",
+		"CLIENT_LABELS":          "app=icmp",
+		"CLIENT_NETWORK_SERVICE": "icmp-responder",
 	}
 }
 
@@ -700,7 +768,8 @@ func waitWebhookPod(k8s *K8s, name string, timeout time.Duration) *v1.Pod {
 			logrus.Errorf("can find pod %v during %v", name, timeout)
 			return nil
 		default:
-			list := k8s.ListPods()
+			list, err := k8s.ListPods()
+			k8s.g.Expect(err).Should(BeNil())
 			for i := 0; i < len(list); i++ {
 				p := &list[i]
 				if strings.Contains(p.Name, name) {
@@ -783,26 +852,6 @@ func checkNSCConfig(k8s *K8s, nscPodNode *v1.Pod, checkIP, pingIP string) *NSCCh
 	return info
 }
 
-// HealNscChecker checks that heal worked properly
-func HealNscChecker(k8s *K8s, nscPod *v1.Pod) *NSCCheckInfo {
-	const attempts = 10
-	success := false
-	var rv *NSCCheckInfo
-	for i := 0; i < attempts; i++ {
-		info := &NSCCheckInfo{}
-		info.pingResponse = pingNse(k8s, nscPod)
-
-		if !strings.Contains(info.pingResponse, "100% packet loss") {
-			success = true
-			rv = info
-			break
-		}
-		<-time.After(time.Second)
-	}
-	k8s.g.Expect(success).To(BeTrue())
-	return rv
-}
-
 // IsBrokeTestsEnabled - Check if broken tests are enabled
 func IsBrokeTestsEnabled() bool {
 	_, ok := os.LookupEnv("BROKEN_TESTS_ENABLED")
@@ -864,17 +913,6 @@ func IsNsePinged(k8s *K8s, from *v1.Pod) (result bool) {
 	}
 
 	return result
-}
-
-// PrintErrors - Print errors for system NSMgr pods
-func PrintErrors(failures []string, k8s *K8s, nodesSetup []*NodeConf, nscInfo *NSCCheckInfo, t *testing.T) {
-	if len(failures) > 0 {
-		logrus.Errorf("Failures: %v", failures)
-		makeLogsSnapshot(k8s, t)
-		nscInfo.PrintLogs()
-
-		t.Fail()
-	}
 }
 
 //NSLookup invokes nslookup on pod with concrete hostname. Tries several times
@@ -967,4 +1005,99 @@ func ExpectNSMsCountToBe(k8s *K8s, countWas, countExpected int) {
 
 	k8s.g.Expect(err).To(BeNil())
 	k8s.g.Expect(len(nsmList)).To(Equal(countExpected), fmt.Sprint(nsmList))
+}
+
+// DeployPrometheus deploys prometheus roles, configMap, deployment and service
+func DeployPrometheus(k8s *K8s) ([]nsmrbac.Role, *appsv1.Deployment, *v1.Service) {
+	roles := CreatePrometheusClusterRoles(k8s)
+	CreatePrometheusConfigMap(k8s)
+	depl := CreatePrometheusDeployment(k8s)
+	svc := CreatePrometheusService(k8s)
+
+	return roles, depl, svc
+}
+
+// DeletePrometheus deletes prometheus roles, configMap, deployment and service
+func DeletePrometheus(k8s *K8s, roles []nsmrbac.Role, depl *appsv1.Deployment, svc *v1.Service) {
+	_, err := k8s.DeleteRoles(roles)
+	k8s.g.Expect(err).To(BeNil())
+
+	err = k8s.DeleteService(svc, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+
+	err = k8s.DeleteDeployment(depl, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+}
+
+// CreatePrometheusClusterRoles creates prometheus roles
+func CreatePrometheusClusterRoles(k8s *K8s) []nsmrbac.Role {
+	promRoles, err := k8s.CreateRoles("prometheus", "prometheus_binding")
+	k8s.g.Expect(err).To(BeNil())
+
+	return promRoles
+}
+
+// CreatePrometheusConfigMap creates prometheus configMap
+func CreatePrometheusConfigMap(k8s *K8s) *v1.ConfigMap {
+	cfgmap, err := k8s.CreateConfigMap(pods.PrometheusConfigMap(k8s.GetK8sNamespace()))
+	k8s.g.Expect(err).To(BeNil())
+
+	return cfgmap
+}
+
+// CreatePrometheusDeployment creates prometheus deployment
+func CreatePrometheusDeployment(k8s *K8s) *appsv1.Deployment {
+	deployment := pods.PrometheusDeployment(k8s.GetK8sNamespace())
+
+	promDepl, err := k8s.CreateDeployment(deployment, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+
+	return promDepl
+}
+
+// CreatePrometheusService creates prometheus service
+func CreatePrometheusService(k8s *K8s) *v1.Service {
+	service := pods.PrometheusService(k8s.GetK8sNamespace())
+
+	promSvc, err := k8s.CreateService(service, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+
+	return promSvc
+}
+
+// DeployCrossConnectMonitor deploys crossconnect-monitor
+func DeployCrossConnectMonitor(k8s *K8s, image string) (*appsv1.Deployment, *v1.Service) {
+	depl := CreateCrossConnectMonitorDeployment(k8s, image)
+	svc := CreateCrossConnectMonitorService(k8s)
+
+	return depl, svc
+}
+
+// DeleteCrossConnectMonitor deletes crossconnect-monitor deployment
+func DeleteCrossConnectMonitor(k8s *K8s, depl *appsv1.Deployment, svc *v1.Service) {
+	err := k8s.DeleteService(svc, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+
+	err = k8s.DeleteDeployment(depl, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+}
+
+// CreateCrossConnectMonitorDeployment creates crossconnect-monitor deployment
+func CreateCrossConnectMonitorDeployment(k8s *K8s, image string) *appsv1.Deployment {
+	deployment := pods.CrossConnectMonitorDeployment(k8s.GetK8sNamespace(), image)
+
+	ccDepl, err := k8s.CreateDeployment(deployment, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+
+	return ccDepl
+}
+
+// CreateCrossConnectMonitorService creates crossconnect-monitor service
+func CreateCrossConnectMonitorService(k8s *K8s) *v1.Service {
+	service := pods.CrossConnectMonitorService(k8s.GetK8sNamespace())
+
+	ccSvc, err := k8s.CreateService(service, k8s.GetK8sNamespace())
+	k8s.g.Expect(err).To(BeNil())
+
+	return ccSvc
 }

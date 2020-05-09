@@ -18,27 +18,29 @@ import (
 	"context"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/sirupsen/logrus"
+	"go.ligato.io/vpp-agent/v3/proto/ligato/configurator"
+	"go.ligato.io/vpp-agent/v3/proto/ligato/vpp"
+	vpp_acl "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/acl"
+	vpp_interfaces "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/interfaces"
+	vpp_l3 "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/l3"
+	"google.golang.org/grpc/status"
+
+	vpp_srv6 "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/srv6"
+
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/kernel"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/memif"
+	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/srv6"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/vxlan"
-	"github.com/networkservicemesh/networkservicemesh/pkg/tools/spanhelper"
-
-	"github.com/gogo/protobuf/proto"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/ligato/vpp-agent/api/configurator"
-	"github.com/ligato/vpp-agent/api/models/vpp"
-	vpp_acl "github.com/ligato/vpp-agent/api/models/vpp/acl"
-	vpp_interfaces "github.com/ligato/vpp-agent/api/models/vpp/interfaces"
-	vpp_l3 "github.com/ligato/vpp-agent/api/models/vpp/l3"
-	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/status"
-
 	"github.com/networkservicemesh/networkservicemesh/forwarder/api/forwarder"
 	"github.com/networkservicemesh/networkservicemesh/forwarder/pkg/common"
 	sdk "github.com/networkservicemesh/networkservicemesh/forwarder/sdk/vppagent"
 	"github.com/networkservicemesh/networkservicemesh/forwarder/vppagent/pkg/vppagent/kvschedclient"
 	"github.com/networkservicemesh/networkservicemesh/pkg/tools"
+	"github.com/networkservicemesh/networkservicemesh/pkg/tools/spanhelper"
 	"github.com/networkservicemesh/networkservicemesh/utils"
 )
 
@@ -52,6 +54,7 @@ const (
 type VPPAgent struct {
 	metricsCollector *MetricsCollector
 	common           *common.ForwarderConfig
+	downstreamResync func()
 }
 
 func CreateVPPAgent() *VPPAgent {
@@ -61,13 +64,14 @@ func CreateVPPAgent() *VPPAgent {
 //CreateForwarderServer creates ForwarderServer handler
 func (v *VPPAgent) CreateForwarderServer(config *common.ForwarderConfig) forwarder.ForwarderServer {
 	return sdk.ChainOf(
-		sdk.ConnectionValidator(),
-		sdk.UseMonitor(config.Monitor),
+		sdk.RequestValidator(),
+		sdk.UseCrossConnectMonitor(config.Monitor),
 		sdk.DirectMemifInterfaces(config.NSMBaseDir),
 		sdk.Connect(v.endpoint()),
 		sdk.KernelInterfaces(config.NSMBaseDir),
+		sdk.UseEthernetContext(),
 		sdk.ClearMechanisms(config.NSMBaseDir),
-		sdk.Commit())
+		sdk.Commit(v.downstreamResync))
 }
 
 // MonitorMechanisms sends mechanism updates
@@ -107,7 +111,7 @@ func (v *VPPAgent) MonitorMechanisms(empty *empty.Empty, updateSrv forwarder.Mec
 	}
 }
 
-func (v *VPPAgent) printVppAgentConfiguration(client configurator.ConfiguratorClient) {
+func (v *VPPAgent) printVppAgentConfiguration(client configurator.ConfiguratorServiceClient) {
 	dumpResult, err := client.Dump(context.Background(), &configurator.DumpRequest{})
 	if err != nil {
 		logrus.Errorf("Failed to dump VPP-agent state %v", err)
@@ -128,7 +132,7 @@ func (v *VPPAgent) reset() error {
 		return err
 	}
 	defer conn.Close()
-	client := configurator.NewConfiguratorClient(conn)
+	client := configurator.NewConfiguratorServiceClient(conn)
 	logrus.Infof("Resetting vppagent...")
 	_, err = client.Update(context.Background(), &configurator.UpdateRequest{Update: &configurator.Config{}, FullResync: true})
 	if err != nil {
@@ -151,7 +155,7 @@ func (v *VPPAgent) programMgmtInterface() error {
 		return err
 	}
 	defer conn.Close()
-	client := configurator.NewConfiguratorClient(conn)
+	client := configurator.NewConfiguratorServiceClient(conn)
 
 	vppArpEntries := []*vpp.ARPEntry{}
 	vppArpEntriesMap := make(map[string]bool)
@@ -172,10 +176,12 @@ func (v *VPPAgent) programMgmtInterface() error {
 			VppConfig: &vpp.ConfigData{
 				Interfaces: []*vpp.Interface{
 					{
-						Name:        ManagementInterface,
-						Type:        vpp_interfaces.Interface_AF_PACKET,
-						Enabled:     true,
-						IpAddresses: []string{v.common.EgressInterface.SrcIPNet().String()},
+						Name:    ManagementInterface,
+						Type:    vpp_interfaces.Interface_AF_PACKET,
+						Enabled: true,
+						IpAddresses: []string{
+							v.common.EgressInterface.SrcIPNet().String(),
+						},
 						PhysAddress: v.common.EgressInterface.HardwareAddr().String(),
 						Link: &vpp_interfaces.Interface_Afpacket{
 							Afpacket: &vpp_interfaces.AfpacketLink{
@@ -237,6 +243,9 @@ func (v *VPPAgent) programMgmtInterface() error {
 			},
 		},
 	}
+
+	v.extendProgramMgmtInterfaceDataRequestForSRv6(dataRequest)
+
 	logrus.Infof("Setting up Mgmt Interface %v", dataRequest)
 	_, err = client.Update(context.Background(), dataRequest)
 	if err != nil {
@@ -269,6 +278,111 @@ func (v *VPPAgent) endpoint() string {
 	return utils.EnvVar(VPPEndpointKey).GetStringOrDefault(VPPEndpointDefault)
 }
 
+func (v *VPPAgent) extendProgramMgmtInterfaceDataRequestForSRv6(dataRequest *configurator.UpdateRequest) {
+	if v.common.EgressInterface.SrcLocalSID() == nil {
+		logrus.Warnf("SRv6 remote mechanism is not supported: Mgmt Interface does not have local IPv6 address")
+		return
+	}
+
+	// Assign ip6 address, required for SRv6 remote mechanism
+	if v.common.EgressInterface.SrcIPV6Net() != nil {
+		dataRequest.Update.VppConfig.Interfaces[0].IpAddresses = append(
+			dataRequest.Update.VppConfig.Interfaces[0].IpAddresses,
+			v.common.EgressInterface.SrcIPV6Net().String(),
+		)
+	}
+	// Add Encapsulation source address to pass clouds firewall rules
+	dataRequest.Update.VppConfig.Srv6Global = &vpp_srv6.SRv6Global{
+		EncapSourceAddress: v.common.EgressInterface.SrcLocalSID().String(),
+	}
+	// Add main local SID for SRv6 to reach forwarder from other pods
+	dataRequest.Update.VppConfig.Srv6Localsids = []*vpp_srv6.LocalSID{
+		{
+			Sid: v.common.EgressInterface.SrcLocalSID().String(),
+			EndFunction: &vpp_srv6.LocalSID_BaseEndFunction{
+				BaseEndFunction: &vpp_srv6.LocalSID_End{},
+			},
+		},
+	}
+
+	dataRequest.Update.VppConfig.Acls = append(dataRequest.Update.VppConfig.Acls, &vpp_acl.ACL{
+		Name: "NSMSRv6ACL",
+		Interfaces: &vpp_acl.ACL_Interfaces{
+			Ingress: []string{dataRequest.Update.VppConfig.Interfaces[0].Name},
+		},
+		Rules: []*vpp_acl.ACL_Rule{
+			{
+				Action: vpp_acl.ACL_Rule_DENY,
+				IpRule: &vpp_acl.ACL_Rule_IpRule{
+					Ip: &vpp_acl.ACL_Rule_IpRule_Ip{
+						DestinationNetwork: "::/0",
+						SourceNetwork:      "::/0",
+					},
+					Icmp: &vpp_acl.ACL_Rule_IpRule_Icmp{
+						Icmpv6: true,
+						// any ICMP packet
+						IcmpCodeRange: &vpp_acl.ACL_Rule_IpRule_Icmp_Range{
+							First: 0,
+							Last:  255,
+						},
+						IcmpTypeRange: &vpp_acl.ACL_Rule_IpRule_Icmp_Range{
+							First: 0,
+							Last:  255,
+						},
+					},
+				},
+			},
+			{
+				Action: vpp_acl.ACL_Rule_DENY,
+				IpRule: &vpp_acl.ACL_Rule_IpRule{
+					Ip: &vpp_acl.ACL_Rule_IpRule_Ip{
+						DestinationNetwork: "::/0",
+						SourceNetwork:      "::/0",
+					},
+					Udp: &vpp_acl.ACL_Rule_IpRule_Udp{
+						DestinationPortRange: &vpp_acl.ACL_Rule_IpRule_PortRange{
+							LowerPort: 0,
+							UpperPort: 65535,
+						},
+						SourcePortRange: &vpp_acl.ACL_Rule_IpRule_PortRange{
+							LowerPort: 0,
+							UpperPort: 65535,
+						},
+					},
+				},
+			},
+			{
+				Action: vpp_acl.ACL_Rule_DENY,
+				IpRule: &vpp_acl.ACL_Rule_IpRule{
+					Ip: &vpp_acl.ACL_Rule_IpRule_Ip{
+						DestinationNetwork: "::/0",
+						SourceNetwork:      "::/0",
+					},
+					Tcp: &vpp_acl.ACL_Rule_IpRule_Tcp{
+						DestinationPortRange: &vpp_acl.ACL_Rule_IpRule_PortRange{
+							LowerPort: 0,
+							UpperPort: 65535,
+						},
+						SourcePortRange: &vpp_acl.ACL_Rule_IpRule_PortRange{
+							LowerPort: 0,
+							UpperPort: 65535,
+						},
+					},
+				},
+			},
+			{
+				Action: vpp_acl.ACL_Rule_PERMIT,
+				IpRule: &vpp_acl.ACL_Rule_IpRule{
+					Ip: &vpp_acl.ACL_Rule_IpRule_Ip{
+						DestinationNetwork: "::/0",
+						SourceNetwork:      "::/0",
+					},
+				},
+			},
+		},
+	})
+}
+
 func (v *VPPAgent) configureVPPAgent() error {
 	logrus.Infof("vppAgentEndpoint: %s", v.endpoint())
 	var kvSchedulerClient *kvschedclient.KVSchedulerClient
@@ -277,6 +391,8 @@ func (v *VPPAgent) configureVPPAgent() error {
 	if kvSchedulerClient, err = kvschedclient.NewKVSchedulerClient(v.endpoint()); err != nil {
 		return err
 	}
+
+	v.downstreamResync = kvSchedulerClient.DownstreamResync
 	common.CreateNSMonitor(v.common.Monitor, kvSchedulerClient.DownstreamResync)
 
 	v.common.MechanismsUpdateChannel = make(chan *common.Mechanisms, 1)
@@ -297,6 +413,17 @@ func (v *VPPAgent) configureVPPAgent() error {
 				},
 			},
 		},
+	}
+	if v.common.EgressInterface.SrcLocalSID() != nil {
+		v.common.Mechanisms.RemoteMechanisms = append(v.common.Mechanisms.RemoteMechanisms,
+			&connection.Mechanism{
+				Type: "SRV6",
+				Parameters: map[string]string{
+					srv6.SrcHostIP:          v.common.EgressInterface.SrcIPV6Net().IP.String(),
+					srv6.SrcHostLocalSID:    v.common.EgressInterface.SrcLocalSID().String(),
+					srv6.SrcHardwareAddress: v.common.EgressInterface.HardwareAddr().String(),
+				},
+			})
 	}
 	err = v.reset()
 	if err != nil {

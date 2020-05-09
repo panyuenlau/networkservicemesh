@@ -1,6 +1,6 @@
 // +build interdomain
 
-package nsmd_integration_tests
+package integration
 
 import (
 	"fmt"
@@ -46,7 +46,7 @@ func testInterdomainForwarderHeal(t *testing.T, clustersCount int, nodesCount in
 		k8s, err := kubetest.NewK8sForConfig(g, true, kubeconfig)
 		g.Expect(err).To(BeNil())
 		defer k8s.Cleanup()
-		defer kubetest.MakeLogsSnapshot(k8s, t)
+		defer k8s.SaveTestArtifacts(t)
 
 		config := []*pods.NSMgrPodConfig{}
 
@@ -85,8 +85,8 @@ func testInterdomainForwarderHeal(t *testing.T, clustersCount int, nodesCount in
 	}
 
 	nscPodNode := kubetest.DeployNSCWithEnv(k8ss[0].K8s, k8ss[0].NodesSetup[0].Node, "nsc-1", defaultTimeout, map[string]string{
-		"OUTGOING_NSC_LABELS": "app=icmp",
-		"OUTGOING_NSC_NAME":   fmt.Sprintf("icmp-responder@%s", nseExternalIP),
+		"CLIENT_LABELS":          "app=icmp",
+		"CLIENT_NETWORK_SERVICE": fmt.Sprintf("icmp-responder@%s", nseExternalIP),
 	})
 
 	kubetest.CheckNSC(k8ss[0].K8s, nscPodNode)
@@ -120,5 +120,5 @@ func testInterdomainForwarderHeal(t *testing.T, clustersCount int, nodesCount in
 	}
 	logrus.Infof("Waiting for connection recovery Done...")
 
-	kubetest.HealTestingPodFixture(g).CheckNsc(k8ss[0].K8s, nscPodNode)
+	kubetest.DefaultTestingPodFixture(g).CheckNsc(k8ss[0].K8s, nscPodNode)
 }

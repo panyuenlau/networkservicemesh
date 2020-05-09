@@ -21,22 +21,20 @@ spec:
           env:
             - name: TEST_APPLICATION
               value: "vppagent-firewall-nse"
-            - name: ADVERTISE_NSE_NAME
+            - name: ENDPOINT_NETWORK_SERVICE
               value: "secure-intranet-connectivity"
-            - name: ADVERTISE_NSE_LABELS
+            - name: ENDPOINT_LABELS
               value: "app=passthrough-1"
-            - name: OUTGOING_NSC_NAME
+            - name: CLIENT_NETWORK_SERVICE
               value: "secure-intranet-connectivity"
-            - name: OUTGOING_NSC_LABELS
+            - name: CLIENT_LABELS
               value: "app=passthrough-1"
-{{- if .Values.global.JaegerTracing }}
             - name: TRACER_ENABLED
-              value: "true"
+              value: {{ .Values.global.JaegerTracing | default false | quote }}
             - name: JAEGER_AGENT_HOST
               value: jaeger.nsm-system
             - name: JAEGER_AGENT_PORT
               value: "6831"
-{{- end }}
           resources:
             limits:
               networkservicemesh.io/socket: 1
@@ -66,13 +64,13 @@ spec:
           env:
             - name: TEST_APPLICATION
               value: "vppagent-firewall-nse"
-            - name: ADVERTISE_NSE_NAME
+            - name: ENDPOINT_NETWORK_SERVICE
               value: "secure-intranet-connectivity"
-            - name: ADVERTISE_NSE_LABELS
+            - name: ENDPOINT_LABELS
               value: "app=passthrough-2"
-            - name: OUTGOING_NSC_NAME
+            - name: CLIENT_NETWORK_SERVICE
               value: "secure-intranet-connectivity"
-            - name: OUTGOING_NSC_LABELS
+            - name: CLIENT_LABELS
               value: "app=passthrough-2"
             - name: TRACER_ENABLED
               value: "true"
@@ -105,13 +103,13 @@ spec:
           env:
             - name: TEST_APPLICATION
               value: "vppagent-firewall-nse"
-            - name: ADVERTISE_NSE_NAME
+            - name: ENDPOINT_NETWORK_SERVICE
               value: "secure-intranet-connectivity"
-            - name: ADVERTISE_NSE_LABELS
+            - name: ENDPOINT_LABELS
               value: "app=passthrough-3"
-            - name: OUTGOING_NSC_NAME
+            - name: CLIENT_NETWORK_SERVICE
               value: "secure-intranet-connectivity"
-            - name: OUTGOING_NSC_LABELS
+            - name: CLIENT_LABELS
               value: "app=passthrough-3"
             - name: TRACER_ENABLED
               value: "true"

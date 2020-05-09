@@ -1,11 +1,13 @@
 // +build basic
 
-package nsmd_integration_tests
+package integration
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/pkg/nsmd"
 	"github.com/networkservicemesh/networkservicemesh/k8s/pkg/prefixcollector"
@@ -52,19 +54,19 @@ func TestExcludePrefixCheck(t *testing.T) {
 	}, k8s.GetK8sNamespace())
 	g.Expect(err).To(BeNil())
 
-	defer kubetest.MakeLogsSnapshot(k8s, t)
+	defer k8s.SaveTestArtifacts(t)
 
 	icmp := kubetest.DeployICMP(k8s, nodes[0].Node, "icmp-responder-nse-1", defaultTimeout)
 
 	clientset, err := k8s.GetClientSet()
 	g.Expect(err).To(BeNil())
 
-	nsc, err := clientset.CoreV1().Pods(k8s.GetK8sNamespace()).Create(pods.NSCPod("nsc", nodes[0].Node,
+	nsc, err := clientset.CoreV1().Pods(k8s.GetK8sNamespace()).Create(context.TODO(), pods.NSCPod("nsc", nodes[0].Node,
 		map[string]string{
-			"OUTGOING_NSC_LABELS": "app=icmp",
-			"OUTGOING_NSC_NAME":   "icmp-responder",
+			"CLIENT_LABELS":          "app=icmp",
+			"CLIENT_NETWORK_SERVICE": "icmp-responder",
 		},
-	))
+	), metaV1.CreateOptions{})
 
 	defer k8s.DeletePods(nsc)
 

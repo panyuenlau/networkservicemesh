@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/networkservicemesh/networkservicemesh/controlplane/pkg/model"
+
 	. "github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 
@@ -23,10 +25,10 @@ func TestNSMDRestart1(t *testing.T) {
 	reply := srv.RequestNSM("nsm-1")
 
 	configuration := (&common.NSConfiguration{
-		Workspace:        reply.Workspace,
-		NsmServerSocket:  reply.ClientBaseDir + reply.Workspace + "/" + reply.NsmServerSocket,
-		NsmClientSocket:  reply.ClientBaseDir + reply.Workspace + "/" + reply.NsmClientSocket,
-		AdvertiseNseName: "test_nse",
+		Workspace:              reply.Workspace,
+		NsmServerSocket:        reply.ClientBaseDir + reply.Workspace + "/" + reply.NsmServerSocket,
+		NsmClientSocket:        reply.ClientBaseDir + reply.Workspace + "/" + reply.NsmClientSocket,
+		EndpointNetworkService: "test_nse",
 	}).FromEnv()
 
 	composite := endpoint.NewCompositeEndpoint(
@@ -54,7 +56,7 @@ func TestNSMDRestart1(t *testing.T) {
 
 	// We need to restart server
 	storage2 := NewSharedStorage()
-	srv = newNSMDFullServerAt(context.Background(), "nsm2", storage2, srv.rootDir)
+	srv = newNSMDFullServerAt(context.Background(), "nsm2", storage2, srv.rootDir, model.NewModel())
 	srv.AddFakeForwarder("test_data_plane", "tcp:some_addr")
 	endpoints2 := srv.TestModel.GetEndpointsByNetworkService("test_nse")
 

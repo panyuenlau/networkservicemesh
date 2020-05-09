@@ -1,10 +1,24 @@
 package converter
 
 import (
+	"fmt"
 	"net"
+	"os"
+	"strconv"
 
+	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	"github.com/sirupsen/logrus"
+
+	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
+	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/common"
+	"github.com/networkservicemesh/networkservicemesh/utils/fs"
+)
+
+const (
+	ForwarderAllowVHost = "FORWARDER_ALLOW_VHOST" // To disallow VHOST please pass "false" into this env variable.
+	dstInterfaceFormat  = "DST-%v"
+	srcInterfaceFormat  = "SRC-%v"
 )
 
 func TempIfName() string {
@@ -29,10 +43,54 @@ func TempIfName() string {
 	return rv
 }
 
+//GetDstInterfaceName returns name of dst interface by id
+func GetDstInterfaceName(id string) string {
+	return fmt.Sprintf(dstInterfaceFormat, id)
+}
+
+//GetSrcInterfaceName returns name of src interface by id
+func GetSrcInterfaceName(id string) string {
+	return fmt.Sprintf(srcInterfaceFormat, id)
+}
+
+func useVHostNet() bool {
+	vhostAllowed := os.Getenv(ForwarderAllowVHost)
+	if vhostAllowed == "false" {
+		return false
+	}
+	if _, err := os.Stat("/dev/vhost-net"); err == nil {
+		return true
+	}
+	return false
+}
+
 func extractCleanIPAddress(addr string) string {
 	ip, _, err := net.ParseCIDR(addr)
 	if err == nil {
 		return ip.String()
 	}
 	return addr
+}
+
+func netNsFileName(m *connection.Mechanism) (string, error) {
+	if m == nil {
+		return "", errors.New("mechanism cannot be nil")
+	}
+	if m.GetParameters() == nil {
+		return "", errors.Errorf("Mechanism.Parameters cannot be nil: %v", m)
+	}
+
+	if _, ok := m.Parameters[common.NetNsInodeKey]; !ok {
+		return "", errors.Errorf("Mechanism.Type %s requires Mechanism.Parameters[%s] for network namespace", m.GetType(), common.NetNsInodeKey)
+	}
+
+	inodeNum, err := strconv.ParseUint(m.Parameters[common.NetNsInodeKey], 10, 64)
+	if err != nil {
+		return "", errors.Errorf("Mechanism.Parameters[%s] must be an unsigned int, instead was: %s: %v", common.NetNsInodeKey, m.Parameters[common.NetNsInodeKey], m)
+	}
+	filename, err := fs.ResolvePodNsByInode(inodeNum)
+	if err != nil {
+		return "", errors.Wrapf(err, "no file found in /proc/*/ns/net with inode %d", inodeNum)
+	}
+	return filename, nil
 }

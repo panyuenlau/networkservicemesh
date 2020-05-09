@@ -4,11 +4,11 @@ kind: Deployment
 spec:
   selector:
     matchLabels:
-      app: nsmgr-daemonset
+      app: crossconnect-monitor
   template:
     metadata:
       labels:
-        app: nsmgr-daemonset
+        app: crossconnect-monitor
     spec:
       serviceAccount: nsmgr-acc
       containers:
@@ -17,11 +17,11 @@ spec:
           imagePullPolicy: {{ .Values.pullPolicy }}
           env:
             - name: INSECURE
-{{- if .Values.insecure }}
-              value: "true"
-{{- else }}
-              value: "false"
-{{- end }}
+              value: {{ .Values.insecure | default false | quote }}
+            - name: METRICS_COLLECTOR_ENABLED
+              value: {{ .Values.metricsCollectorEnabled | default false | quote }}
+            - name: PROMETHEUS
+              value: {{ .Values.prometheus | default false | quote }}
           volumeMounts:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
@@ -34,3 +34,23 @@ spec:
 metadata:
   name: crossconnect-monitor
   namespace: {{ .Release.Namespace }}
+
+{{- if .Values.prometheus }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: crossconnect-monitor-svc
+  namespace: nsm-system
+  labels:
+    app: crossconnect-monitor
+
+spec:
+  selector:
+    app: crossconnect-monitor
+  ports:
+    - port: 9095
+      protocol: TCP
+      targetPort: 9090
+{{- end }}
+

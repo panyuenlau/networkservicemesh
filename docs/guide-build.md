@@ -53,7 +53,7 @@ make helm-install-nsm                                        # install the nsm i
 ## Run
 * [icmp-responder](examples/icmp-responder.md) - A simple example that connects an App Pod Client to a Network Service.  
 ```bash
-make helm-install-icmp-responder
+make helm-install-endpoint helm-install-client
 ```
 * [vpp-icmp-responder](examples/vpp-icmp-example.md) - A simple example that connects a vpp based Pod to a Network Service using memif.  
 ```bash
@@ -65,13 +65,15 @@ make helm-install-vpn
 ```
 
 ## Verify
-You can check to see things are working properly by typing:
-
-```bash
-make k8s-check
-```
-
-which will try pinging from NSCs to NSEs.
+There are set of checkers that allow to verify examples.
+* _icmp-responder_ and _vpp-icmp-responder_
+    ```bash
+    make k8s-icmp-check
+    ```
+* _vpn_  
+    ```bash
+    make k8s-vpn-check
+    ```
 
 ## Uninstall
 

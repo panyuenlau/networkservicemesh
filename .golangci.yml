@@ -14,6 +14,7 @@ run:
     - deployments
     - docks
     - scripts
+    - pkg/networkservice
 linters-settings:
   errcheck:
     check-type-assertions: false
@@ -93,6 +94,7 @@ linters:
     - varcheck  # deprecated
     - unused  # deprecated
     - goimports
+    - funlen
   enable-all: true
 issues:
   exclude-use-default: false
@@ -106,10 +108,6 @@ issues:
       linters:
         - deadcode
     - path: cmd/admission-webhook/init.go
-      linters:
-        - gochecknoglobals
-        - gochecknoinits
-    - path: cmd/nsm-coredns
       linters:
         - gochecknoglobals
         - gochecknoinits
@@ -130,6 +128,12 @@ issues:
     - path: cloudtest/pkg/commands/main.go
       linters:
         - gosec
+        - funlen
+    - path: integration/interdomain_floating_interdomain_die_test.go
+      linters:
+        - funlen
+    - path: pkg/registryserver/nse.go
+      linters:
         - funlen
     - path: probes/health/serve_mux_health.go
       linters:

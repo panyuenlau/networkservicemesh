@@ -19,6 +19,8 @@ import (
 	"os"
 	"sync"
 
+	nsmmonitor "github.com/networkservicemesh/networkservicemesh/side-cars/pkg/nsm-monitor"
+
 	"github.com/networkservicemesh/networkservicemesh/pkg/tools/jaeger"
 	"github.com/networkservicemesh/networkservicemesh/utils"
 
@@ -37,6 +39,7 @@ const (
 )
 
 type nsClientBackend struct {
+	*nsmmonitor.EmptyNSMMonitorHandler
 	workspace        string
 	vppAgentEndpoint string
 }
@@ -59,6 +62,13 @@ func (nscb *nsClientBackend) Connect(connection *connection.Connection) error {
 }
 
 var version string
+
+func (nscb *nsClientBackend) Updated(_, new *connection.Connection) {
+	err := nscb.Connect(new)
+	if err != nil {
+		logrus.Fatalf("Unable to re-connect %v", err)
+	}
+}
 
 func main() {
 	logrus.Info("Starting vppagent-nsc...")
@@ -92,8 +102,11 @@ func main() {
 		logrus.Fatalf("Unable to create the backend %v", err)
 	}
 
+	ctx, cancelProc = context.WithTimeout(context.Background(), client.ConnectionRetry*(client.RequestDelay+client.ConnectTimeout))
+	defer cancelProc()
+
 	var outgoingConnection *connection.Connection
-	outgoingConnection, err = nsmClient.Connect(ctx, "if1", memif.MECHANISM, "Primary interface")
+	outgoingConnection, err = nsmClient.ConnectRetry(ctx, "if1", memif.MECHANISM, "Primary interface", client.ConnectionRetry, client.RequestDelay)
 	if err != nil {
 		logrus.Fatalf("Unable to connect %v", err)
 	}
@@ -103,6 +116,9 @@ func main() {
 		logrus.Fatalf("Unable to connect %v", err)
 	}
 
+	connMonitor := nsmmonitor.NewNSMMonitorApp(common.FromEnv())
+	connMonitor.SetHandler(backend)
+	go connMonitor.Run()
 	logrus.Info("nsm client: initialization is completed successfully, wait for Ctrl+C...")
 	var wg sync.WaitGroup
 	wg.Add(1)

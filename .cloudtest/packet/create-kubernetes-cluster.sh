@@ -3,8 +3,9 @@
 
 master_ip=$1
 worker_ip=$2
+sshkey=$3
 
-SSH_OPTS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+SSH_OPTS="-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -i ${sshkey}"
 
 
 # Install kubeadm, kubelet and kubectl
@@ -20,9 +21,22 @@ wait
 scp ${SSH_OPTS} ./.cloudtest/packet/start-master.sh root@${master_ip}:start-master.sh || exit 3
 scp ${SSH_OPTS} ./.cloudtest/packet/download-worker-images.sh root@${worker_ip}:download-worker-images.sh || exit 4
 
+pids=""
 ssh ${SSH_OPTS} root@${master_ip} ./start-master.sh &
+pids+=" $!"
+
 ssh ${SSH_OPTS} root@${worker_ip} ./download-worker-images.sh &
-wait
+pids+=" $!"
+
+for pid in $pids; do
+  echo "waiting for PID $pid"
+  wait "$pid"
+  exitcode=$?
+  if [ "$exitcode" != 0 ]; then
+    echo "node setup failed: process exited with code $exitcode, aborting.." && exit 9
+  fi
+done
+
 
 # Download worker join script
 mkdir -p /tmp/${master_ip}

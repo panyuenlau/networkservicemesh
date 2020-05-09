@@ -36,6 +36,7 @@ import (
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/networkservice"
 	"github.com/networkservicemesh/networkservicemesh/pkg/tools"
 	"github.com/networkservicemesh/networkservicemesh/sdk/common"
+	ctrl_common "github.com/networkservicemesh/networkservicemesh/controlplane/pkg/common"
 )
 
 const (
@@ -50,11 +51,11 @@ const (
 // NsmClient is the NSM client struct
 type NsmClient struct {
 	*common.NsmConnection
-	OutgoingNscName     string
-	OutgoingNscLabels   map[string]string
-	OutgoingConnections []*connection.Connection
-	NscInterfaceName    string
-	tracerCloser        io.Closer
+	ClientNetworkService string
+	ClientLabels         map[string]string
+	OutgoingConnections  []*connection.Connection
+	NscInterfaceName     string
+	tracerCloser         io.Closer
 }
 
 // Connect with no retry and delay
@@ -107,7 +108,7 @@ func (nsmc *NsmClient) ConnectToEndpointRetry(ctx context.Context, remoteIp, des
 			Prefix: r,
 		})
 	}
-	nsName := nsmc.Configuration.OutgoingNscName
+	nsName := nsmc.Configuration.ClientNetworkService
 	if remoteIp != "" {
 		nsName = nsName + "@" + remoteIp
 	}
@@ -121,7 +122,7 @@ func (nsmc *NsmClient) ConnectToEndpointRetry(ctx context.Context, remoteIp, des
 					SrcRoutes:     srcRoutes,
 				},
 			},
-			Labels: nsmc.OutgoingNscLabels,
+			Labels: nsmc.ClientLabels,
 		},
 		MechanismPreferences: []*connection.Mechanism{
 			outgoingMechanism,
@@ -131,7 +132,7 @@ func (nsmc *NsmClient) ConnectToEndpointRetry(ctx context.Context, remoteIp, des
 		outgoingRequest.Connection.NetworkServiceEndpointName = destEndpointName
 	}
 	if destEndpointManager != "" {
-		outgoingRequest.Connection.NetworkServiceManagers = []string{destEndpointManager}
+		outgoingRequest.Connection.Path = ctrl_common.Strings2Path(destEndpointManager)
 	}
 	var outgoingConnection *connection.Connection
 	maxRetry := retryCount
@@ -226,9 +227,9 @@ func NewNSMClient(ctx context.Context, configuration *common.NSConfiguration) (*
 	}
 
 	client := &NsmClient{
-		OutgoingNscName:   configuration.OutgoingNscName,
-		OutgoingNscLabels: tools.ParseKVStringToMap(configuration.OutgoingNscLabels, ",", "="),
-		NscInterfaceName:  configuration.NscInterfaceName,
+		ClientNetworkService: configuration.ClientNetworkService,
+		ClientLabels:         tools.ParseKVStringToMap(configuration.ClientLabels, ",", "="),
+		NscInterfaceName:     configuration.NscInterfaceName,
 	}
 
 	client.tracerCloser = jaeger.InitJaeger("nsm-client")

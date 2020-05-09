@@ -12,17 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-K8S_CONF_DIR = k8s/conf
+NSM_NAMESPACE?=nsm-system
 
-CLUSTER_CONFIG_ROLE = cluster-role-admin cluster-role-binding cluster-role-view
-CLUSTER_CONFIG_CRD = crd-networkservices crd-networkserviceendpoints crd-networkservicemanagers
-CLUSTER_CONFIG_NAMESPACE = namespace-nsm
-CLUSTER_CONFIGS = $(CLUSTER_CONFIG_ROLE) $(CLUSTER_CONFIG_CRD) $(CLUSTER_CONFIG_NAMESPACE) \
-	nsm-configmap
-
-ifeq ($(NSM_NAMESPACE),)
-NSM_NAMESPACE := $(shell cat "${K8S_CONF_DIR}/${CLUSTER_CONFIG_NAMESPACE}.yaml" | awk '/name:/ {print $$2}')
-endif
 CONTAINER_REPO?=networkservicemesh
 CONTAINER_TAG?=master
 
@@ -61,19 +52,13 @@ k8s-load-images: $(addsuffix -load-images,$(addprefix k8s-,$(images_tar)))
 k8s-%-load-images:  k8s-start $(CLUSTER_RULES_PREFIX)-%-load-images
 	@echo "Delegated to $(CLUSTER_RULES_PREFIX)-$*-load-images"
 
-.PHONY: k8s-%-config
-k8s-%-config:  k8s-start ${K8S_CONF_DIR}/%.yaml
-	@$(kubectl) apply -f ${K8S_CONF_DIR}/$*.yaml
-
-.PHONY: k8s-%-deconfig
-k8s-%-deconfig:
-	@$(kubectl) delete -f ${K8S_CONF_DIR}/$*.yaml || true
-
 .PHONY: k8s-config
-k8s-config: $(addsuffix -config,$(addprefix k8s-,$(CLUSTER_CONFIGS)))
+k8s-config:
+	helm --namespace ${NSM_NAMESPACE} install --name config deployments/helm/nsm/charts/config
 
 .PHONY: k8s-deconfig
-k8s-deconfig: $(addsuffix -deconfig,$(addprefix k8s-,$(CLUSTER_CONFIGS)))
+k8s-deconfig:
+	helm delete config --purge || true
 
 .PHONY: k8s-start
 k8s-start: $(CLUSTER_RULES_PREFIX)-start
@@ -90,6 +75,11 @@ k8s-save: docker-save
 .PHONY: k8s-delete-nsm-namespaces
 k8s-delete-nsm-namespaces:
 	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/delete-nsm-namespaces.sh
+
+.PHONY: k8s-reset
+k8s-reset:
+	make -i k8s-deconfig helm-delete k8s-terminating-cleanup k8s-delete-nsm-namespaces || true
+	make k8s-config && echo "Cluster reset successfull"
 
 .PHONY: k8s-%logs
 k8s-%-logs:
@@ -143,20 +133,33 @@ k8s-forward:
 	@$(kubectl) port-forward $$($(kubectl) get pods | grep $(pod) | cut -d \  -f1) $(port1):$(port2)
 
 .PHONY: k8s-check
-k8s-check:
+k8s-check: k8s-icmp-check k8s-vpn-check
+
+.PHONY: k8s-icmp-check
+k8s-icmp-check:
+	$(info Checking icmp...)
 	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/nsc_ping_all.sh
+
+.PHONY: k8s-vpn-check
+k8s-vpn-check:
+	$(info Checking vpn...)
 	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/verify_vpn_gateway.sh
 
-.PHONY: k8s-logs-snapshot
-k8s-logs-snapshot:
-	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/logs_snapshot.sh
+.PHONY: k8s-crossconnect-monitor-check
+k8s-crossconnect-monitor-check:
+	$(info Checking crossconnect-monitor...)
+	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/verify_crossconnect_monitor.sh
 
-k8s-logs-snapshot-only-master:
-	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/logs_snapshot.sh only-master
+.PHONY: k8s-save-artifacts
+k8s-save-artifacts:
+	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/save_artifacts.sh
+
+k8s-save-artifacts-only-master:
+	@NSM_NAMESPACE=${NSM_NAMESPACE} ./scripts/save_artifacts.sh only-master
 
 .PHONY: k8s-terminating-cleanup
 k8s-terminating-cleanup:
-	@$(kubectl) get pods -o wide |grep Terminating | cut -d \  -f 1 | xargs $(kubectl) delete pods --force --grace-period 0 {}
+	@$(kubectl) get pods -o wide |grep Terminating | cut -d \  -f 1 | xargs --no-run-if-empty $(kubectl) delete pods --force --grace-period 0 {}
 
 .PHONE: k8s-pods
 k8s-pods:

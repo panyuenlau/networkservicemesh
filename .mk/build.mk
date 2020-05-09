@@ -18,10 +18,13 @@ include $(foreach module, $(modules), ./$(module)/build.mk)
 
 BIN_DIR = $(PWD)/build/dist
 VERSION = $(shell git describe --tags --always)
-VPP_AGENT=ligato/vpp-agent:v2.3.0
+# Temporary while image is not uploaded to ligato docker hub repo
+VPP_AGENT=ligato/vpp-agent:v3.1.0
 CGO_ENABLED=0
 GOOS=linux
 DOCKER=./build
+GO_BUILD_ENV = CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) 
+GO_BUILD = ${GO_BUILD_ENV} go build -ldflags "-extldflags '-static' -X  main.version=$(VERSION)"
 
 print:
 	echo $(modules)
@@ -37,8 +40,7 @@ define build_rule
 $(module)-%-build:
 	@echo "----------------------  Building ${module}::$$* via Cross compile ----------------------" && \
 	pushd ./$(module) && \
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build \
-    	-ldflags "-extldflags '-static' -X  main.version=$(VERSION)" -o $(BIN_DIR)/$$*/$$* ./cmd/$$* && \
+	${GO_BUILD} -o $(BIN_DIR)/$$*/$$* ./cmd/$$* && \
 	popd
 endef
 
@@ -52,7 +54,9 @@ endef
 $(foreach module, $(modules), $(eval $(call build_rule, $(module))))
 
 images += $(modules)
-images += spire-registration
+
+.PHONY: docker-list
+docker-list: $(addsuffix -list, $(addprefix docker-, $(modules)))
 
 .PHONY: docker-build
 docker-build: $(addsuffix -build, $(addprefix docker-, $(images)))
@@ -67,9 +71,6 @@ docker-%-build: docker-%-prepare
 		$(call docker_build,$*,Dockerfile.empty,$(BIN_DIR)/$*); \
 	fi
 
-.PHONY: docker-spire-registration-build
-docker-spire-registration-build: docker-%-build:
-	$(call docker_build,$*,Dockerfile.$*,.)
 
 # Could be overrided in ./module/build.mk files to copy some configs
 # into $(BIN_DIR)/$* before sending it as a Build Context to docker

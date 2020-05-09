@@ -117,7 +117,7 @@ Now that we have the NSM infrastructure deployed, we can proceed with deploying 
 * The basic ICMP example is deployed like this:
 
 ```bash
-make helm-install-icmp-responder
+make helm-install-endpoint helm-install-client
 ```
 
 * The VPN service composition example is deployed with:
@@ -130,9 +130,14 @@ make helm-install-vpn
 
 Both of the examples can be verified by running a simple check:
 
-```bash
-make k8s-check
-```
+* _icmp-responder_
+    ```bash
+    make k8s-icmp-check
+    ```
+* _vpn_  
+    ```bash
+    make k8s-vpn-check
+    ```
 
 * For ICMP you should see ping succeeding as below:
 

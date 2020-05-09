@@ -43,13 +43,13 @@ FORWARDING_PLANE=kernel make helm-install-nsm
 Deploy icmp-responder and nsc:
 
 ```bash
-FORWARDING_PLANE=kernel make helm-install-icmp-responder
+FORWARDING_PLANE=kernel make helm-install-endpoint helm-install-client
 ```
 
 And finally verify that it works as expected:
 
 ```bash
-FORWARDING_PLANE=kernel make k8s-check
+FORWARDING_PLANE=kernel make k8s-icmp-check
 ```
 
 ## How it works

@@ -3,11 +3,11 @@ package tests
 import (
 	"context"
 
-	vpp_interfaces "github.com/ligato/vpp-agent/api/models/vpp/interfaces"
+	vpp_interfaces "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/interfaces"
 
 	"github.com/networkservicemesh/networkservicemesh/sdk/vppagent"
 
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"

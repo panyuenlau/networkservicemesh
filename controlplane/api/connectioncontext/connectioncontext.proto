@@ -74,7 +74,14 @@ message DNSContext {
     repeated DNSConfig configs = 1;
 }
 
+message EthernetContext {
+    string src_mac = 1;
+    string dst_mac = 2;
+}
+
 message ConnectionContext {
     IPContext ip_context = 1; /* IP related context */
     DNSContext dns_context = 2; /* DNS related context */
+    EthernetContext ethernet_context = 3;
+    map<string, string> extra_context = 4; /* a k,v map for transfering arbitrary information from an NSE to an NSC or dataplane */
 }

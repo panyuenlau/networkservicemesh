@@ -29,6 +29,7 @@ providers:
         make azure-start
       stop: make azure-destroy
       prepare: |
-        make k8s-config helm-init
+        make helm-init k8s-config
         make spire-install-azure
-        make spire-wait-registration
+      cleanup: |
+        ./scripts/azure/destroy-old-clusters.sh 4 "^azure"
