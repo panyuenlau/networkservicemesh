@@ -35,7 +35,7 @@ spec:
           imagePullPolicy: {{ .Values.pullPolicy }}
           ports:
             - containerPort: 5005
-              hostPort: 80
+              hostPort: 5005
           env:
             - name: NODE_NAME
               valueFrom:
