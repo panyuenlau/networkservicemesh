@@ -1,4 +1,4 @@
-module github.com/networkservicemesh/networkservicemesh/forwarder
+module github.com/tiswanso/networkservicemesh/forwarder
 
 go 1.13
 
@@ -6,9 +6,10 @@ require (
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d
 	github.com/golang/protobuf v1.3.3
 	github.com/networkservicemesh/networkservicemesh/controlplane/api v0.3.0
-	github.com/networkservicemesh/networkservicemesh/forwarder/api v0.3.0
+	github.com/networkservicemesh/networkservicemesh/forwarder v0.0.0-00010101000000-000000000000
+	github.com/networkservicemesh/networkservicemesh/forwarder/api v0.0.0-00010101000000-000000000000
 	github.com/networkservicemesh/networkservicemesh/pkg v0.3.0
-	github.com/networkservicemesh/networkservicemesh/sdk v0.3.0
+	github.com/networkservicemesh/networkservicemesh/sdk v0.0.0-00010101000000-000000000000
 	github.com/networkservicemesh/networkservicemesh/utils v0.3.0
 	github.com/onsi/gomega v1.7.0
 	github.com/pkg/errors v0.9.1
@@ -22,9 +23,8 @@ require (
 	google.golang.org/grpc v1.27.1
 )
 
-replace github.com/census-instrumentation/opencensus-proto v0.1.0-0.20181214143942-ba49f56771b8 => github.com/census-instrumentation/opencensus-proto v0.0.3-0.20181214143942-ba49f56771b8
-
 replace (
+	github.com/census-instrumentation/opencensus-proto v0.1.0-0.20181214143942-ba49f56771b8 => github.com/census-instrumentation/opencensus-proto v0.0.3-0.20181214143942-ba49f56771b8
 	github.com/networkservicemesh/networkservicemesh => ../
 	github.com/networkservicemesh/networkservicemesh/controlplane => ../controlplane
 	github.com/networkservicemesh/networkservicemesh/controlplane/api => ../controlplane/api

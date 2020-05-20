@@ -1,4 +1,4 @@
-module github.com/networkservicemesh/networkservicemesh/scripts/aws
+module github.com/tiswanso/networkservicemesh/scripts/aws
 
 go 1.13
 

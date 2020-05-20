@@ -1,4 +1,4 @@
-module github.com/networkservicemesh/networkservicemesh
+module github.com/tiswanso/networkservicemesh
 
 go 1.13
 
