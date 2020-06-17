@@ -83,6 +83,7 @@ func (c *MemifInterfaceConverter) ToDataRequest(rv *configurator.Config, connect
 		Type:        vpp_interfaces.Interface_MEMIF,
 		Enabled:     true,
 		IpAddresses: ipAddresses,
+		Mtu:         1450,
 		Link: &vpp_interfaces.Interface_Memif{
 			Memif: &vpp_interfaces.MemifLink{
 				Master:         isMaster,
