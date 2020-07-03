@@ -41,8 +41,16 @@ func getIPParameter(m *connection.Mechanism, name string) (string, error) {
 	return ip, nil
 }
 
+// SetMTUOverhead sets the MTU overhead parameter in the mechanism
+func SetMTUOverhead(m *connection.Mechanism, mtu uint32) error {
+	if m == nil {
+		return errors.New("mechanism cannot be nil")
+	}
+	return SetMTUOverheadParameter(m.Parameters, mtu)
+}
+
 // SetMTUOverhead sets the MTU overhead parameter in the parameter map
-func SetMTUOverhead(parameters map[string]string, mtu uint32) error {
+func SetMTUOverheadParameter(parameters map[string]string, mtu uint32) error {
 	if parameters == nil {
 		return errors.Errorf("mechanism parameters cannot be nil")
 	}
@@ -50,12 +58,15 @@ func SetMTUOverhead(parameters map[string]string, mtu uint32) error {
 	return nil
 }
 
-// GetMTUOverhead returns the MTU overhead parameter value from the parameter map
-func GetMTUOverhead(parameters map[string]string) (uint32, error) {
-	if parameters == nil {
+// GetMTUOverhead returns the MTU overhead value from the mechanism
+func GetMTUOverhead(m *connection.Mechanism) (uint32, error) {
+	if m == nil {
+		return 0, errors.New("mechanism cannot be nil")
+	}
+	if m.Parameters == nil {
 		return 0, errors.Errorf("mechanism parameters cannot be nil")
 	}
-	overheadParam, ok := parameters[MTUOverhead]
+	overheadParam, ok := m.Parameters[MTUOverhead]
 	if !ok {
 		return 0, nil // parameter not found - return 0
 	}

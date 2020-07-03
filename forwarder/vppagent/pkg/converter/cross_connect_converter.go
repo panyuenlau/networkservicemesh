@@ -143,10 +143,10 @@ func (c *CrossConnectConverter) calculateInterfaceMTU() uint32 {
 	}
 	// find the largest MTU overhead from both src/dst mechanisms and src/dst extra contexts
 	overheads := make([]uint32, 4)
-	overheads[0], _ = common.GetMTUOverhead(c.Source.GetMechanism().GetParameters())
-	overheads[1], _ = common.GetMTUOverhead(c.Destination.GetMechanism().GetParameters())
-	overheads[2], _ = common.GetMTUOverhead(c.Source.GetContext().GetExtraContext())
-	overheads[3], _ = common.GetMTUOverhead(c.Destination.GetContext().GetExtraContext())
+	overheads[0], _ = common.GetMTUOverhead(c.Source.GetMechanism())
+	overheads[1], _ = common.GetMTUOverhead(c.Destination.GetMechanism())
+	overheads[2], _ = c.Source.GetContext().GetMTUOverhead()
+	overheads[3], _ = c.Destination.GetContext().GetMTUOverhead()
 	maxOverhead := uint32(0)
 	for _, o := range overheads {
 		if o > maxOverhead {

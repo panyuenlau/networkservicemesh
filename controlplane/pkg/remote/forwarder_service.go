@@ -153,7 +153,7 @@ func (cce *forwarderService) configureVXLANParameters(parameters, dpParameters m
 
 	parameters[vxlan.VNI] = strconv.FormatUint(uint64(vni), 10)
 
-	mechanisms.SetMTUOverhead(parameters, vxlan.MTUOverhead)
+	mechanisms.SetMTUOverheadParameter(parameters, vxlan.MTUOverhead)
 }
 
 func (cce *forwarderService) configureSRv6Parameters(connectionID string, parameters, dpParameters map[string]string) {
@@ -162,7 +162,7 @@ func (cce *forwarderService) configureSRv6Parameters(connectionID string, parame
 	parameters[srv6.DstHostLocalSID] = dpParameters[srv6.SrcHostLocalSID]
 	parameters[srv6.DstBSID] = cce.serviceRegistry.SIDAllocator().SID(connectionID)
 	parameters[srv6.DstLocalSID] = cce.serviceRegistry.SIDAllocator().SID(connectionID)
-	mechanisms.SetMTUOverhead(parameters, srv6.MTUOverhead)
+	mechanisms.SetMTUOverheadParameter(parameters, srv6.MTUOverhead)
 }
 
 func (cce *forwarderService) configureWireguardParameters(connectionID string, parameters, dpParameters map[string]string) {
@@ -178,7 +178,7 @@ func (cce *forwarderService) configureWireguardParameters(connectionID string, p
 
 	parameters[wireguard.DstPort] = wireguard.AssignPort(connectionID)
 
-	mechanisms.SetMTUOverhead(parameters, wireguard.MTUOverhead)
+	mechanisms.SetMTUOverheadParameter(parameters, wireguard.MTUOverhead)
 }
 
 func (cce *forwarderService) updateMechanism(request *networkservice.NetworkServiceRequest, dp *model.Forwarder) error {

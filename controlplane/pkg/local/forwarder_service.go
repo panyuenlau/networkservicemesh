@@ -158,7 +158,7 @@ func (cce *forwarderService) prepareSRv6Mechanism(m *connection.Mechanism, reque
 	parameters[srv6.SrcBSID] = cce.serviceRegistry.SIDAllocator().SID(request.Connection.GetId())
 	parameters[srv6.SrcLocalSID] = cce.serviceRegistry.SIDAllocator().SID(request.Connection.GetId())
 
-	mechanisms.SetMTUOverhead(parameters, srv6.MTUOverhead)
+	mechanisms.SetMTUOverhead(m, srv6.MTUOverhead)
 	return m
 }
 
@@ -179,7 +179,7 @@ func (cce *forwarderService) prepareWireguardMechanism(m *connection.Mechanism, 
 
 	parameters[wireguard.SrcPort] = wireguard.AssignPort(request.Connection.Id)
 
-	mechanisms.SetMTUOverhead(parameters, wireguard.MTUOverhead)
+	mechanisms.SetMTUOverhead(m, wireguard.MTUOverhead)
 	return m
 }
 
