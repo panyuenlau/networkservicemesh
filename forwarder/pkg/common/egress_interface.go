@@ -42,6 +42,7 @@ type EgressInterfaceType interface {
 	Interface() *net.Interface
 	Name() string
 	HardwareAddr() *net.HardwareAddr
+	MTU() uint32
 	OutgoingInterface() string
 	ArpEntries() []*ARPEntry
 }
@@ -270,6 +271,13 @@ func (e *egressInterface) HardwareAddr() *net.HardwareAddr {
 		return nil
 	}
 	return &e.Interface().HardwareAddr
+}
+
+func (e *egressInterface) MTU() uint32 {
+	if e == nil {
+		return 0
+	}
+	return uint32(e.Interface().MTU)
 }
 
 func (e *egressInterface) OutgoingInterface() string {

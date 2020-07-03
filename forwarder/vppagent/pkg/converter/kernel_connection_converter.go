@@ -86,7 +86,7 @@ func (c *KernelConnectionConverter) ToDataRequest(rv *configurator.Config, conne
 			Name:    c.conversionParameters.Name,
 			Type:    vpp_interfaces.Interface_TAP,
 			Enabled: true,
-			Mtu:     1450,
+			Mtu:     c.conversionParameters.MTU,
 			Link: &vpp_interfaces.Interface_Tap{
 				Tap: &vpp_interfaces.TapLink{
 					Version: 2,
@@ -104,7 +104,7 @@ func (c *KernelConnectionConverter) ToDataRequest(rv *configurator.Config, conne
 			IpAddresses: ipAddresses,
 			PhysAddress: mac,
 			HostIfName:  m.GetParameters()[common.InterfaceNameKey],
-			Mtu:         1450,
+			Mtu:         c.conversionParameters.MTU,
 			Namespace: &linux_namespace.NetNamespace{
 				Type:      linux_namespace.NetNamespace_FD,
 				Reference: filepath,
@@ -122,7 +122,7 @@ func (c *KernelConnectionConverter) ToDataRequest(rv *configurator.Config, conne
 			Type:       linux_interfaces.Interface_VETH,
 			Enabled:    true,
 			HostIfName: c.conversionParameters.Name + "-veth",
-			Mtu:        1450,
+			Mtu:        c.conversionParameters.MTU,
 			Link: &linux_interfaces.Interface_Veth{
 				Veth: &linux_interfaces.VethLink{
 					PeerIfName:           c.conversionParameters.Name,
@@ -138,7 +138,7 @@ func (c *KernelConnectionConverter) ToDataRequest(rv *configurator.Config, conne
 			IpAddresses: ipAddresses,
 			PhysAddress: mac,
 			HostIfName:  m.GetParameters()[common.InterfaceNameKey],
-			Mtu:         1450,
+			Mtu:         c.conversionParameters.MTU,
 			Namespace: &linux_namespace.NetNamespace{
 				Type:      linux_namespace.NetNamespace_FD,
 				Reference: filepath,
@@ -155,7 +155,7 @@ func (c *KernelConnectionConverter) ToDataRequest(rv *configurator.Config, conne
 			Name:    c.conversionParameters.Name,
 			Type:    vpp_interfaces.Interface_AF_PACKET,
 			Enabled: true,
-			Mtu:     1450,
+			Mtu:     c.conversionParameters.MTU,
 			Link: &vpp_interfaces.Interface_Afpacket{
 				Afpacket: &vpp_interfaces.AfpacketLink{
 					LinuxInterface: c.conversionParameters.Name + "-veth",

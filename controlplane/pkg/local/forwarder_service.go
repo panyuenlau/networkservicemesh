@@ -25,6 +25,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
+	mechanisms "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/common"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/srv6"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/wireguard"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/crossconnect"
@@ -152,10 +153,12 @@ func (cce *forwarderService) prepareSRv6Mechanism(m *connection.Mechanism, reque
 	parameters := m.GetParameters()
 	if parameters == nil {
 		parameters = map[string]string{}
+		m.Parameters = parameters
 	}
 	parameters[srv6.SrcBSID] = cce.serviceRegistry.SIDAllocator().SID(request.Connection.GetId())
 	parameters[srv6.SrcLocalSID] = cce.serviceRegistry.SIDAllocator().SID(request.Connection.GetId())
-	m.Parameters = parameters
+
+	mechanisms.SetMTUOverhead(parameters, srv6.MTUOverhead)
 	return m
 }
 
@@ -163,6 +166,7 @@ func (cce *forwarderService) prepareWireguardMechanism(m *connection.Mechanism, 
 	parameters := m.GetParameters()
 	if parameters == nil {
 		parameters = map[string]string{}
+		m.Parameters = parameters
 	}
 
 	key, err := wgtypes.GeneratePrivateKey()
@@ -175,6 +179,7 @@ func (cce *forwarderService) prepareWireguardMechanism(m *connection.Mechanism, 
 
 	parameters[wireguard.SrcPort] = wireguard.AssignPort(request.Connection.Id)
 
+	mechanisms.SetMTUOverhead(parameters, wireguard.MTUOverhead)
 	return m
 }
 
