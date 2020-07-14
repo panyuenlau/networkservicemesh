@@ -68,7 +68,7 @@ func (v *VPPAgent) CreateForwarderServer(config *common.ForwarderConfig) forward
 		sdk.UseCrossConnectMonitor(config.Monitor),
 		sdk.DirectMemifInterfaces(config.NSMBaseDir),
 		sdk.Connect(v.endpoint()),
-		sdk.KernelInterfaces(config.NSMBaseDir, config.EgressInterface.MTU()),
+		sdk.KernelInterfaces(config.NSMBaseDir, config.EgressInterface.MTU(), config.ConnectionMTUOverride),
 		sdk.UseEthernetContext(),
 		sdk.ClearMechanisms(config.NSMBaseDir),
 		sdk.Commit(v.downstreamResync))

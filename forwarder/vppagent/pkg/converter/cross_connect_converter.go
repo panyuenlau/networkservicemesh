@@ -138,6 +138,9 @@ func (c *CrossConnectConverter) MechanismsToDataRequest(rv *configurator.Config,
 
 // calculateInterfaceMTU returns the proper MTU to be applied on xconnect interfaces
 func (c *CrossConnectConverter) calculateInterfaceMTU() uint32 {
+	if c.conversionParameters.MTUOverride != 0 {
+		return c.conversionParameters.MTUOverride
+	}
 	if c.conversionParameters.BaseMTU == 0 {
 		return 0 // MTU 0 in vppagent API means undefined
 	}

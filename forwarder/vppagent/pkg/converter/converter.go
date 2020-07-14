@@ -7,8 +7,9 @@ type Converter interface {
 }
 
 type CrossConnectConversionParameters struct {
-	BaseDir string
-	BaseMTU uint32
+	BaseDir     string
+	BaseMTU     uint32
+	MTUOverride uint32
 }
 
 type ConnectionContextSide int
