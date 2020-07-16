@@ -31,6 +31,7 @@ import (
 	vpp_srv6 "go.ligato.io/vpp-agent/v3/proto/ligato/vpp/srv6"
 
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection"
+	mechanisms "github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/common"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/kernel"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/memif"
 	"github.com/networkservicemesh/networkservicemesh/controlplane/api/connection/mechanisms/srv6"
@@ -68,7 +69,7 @@ func (v *VPPAgent) CreateForwarderServer(config *common.ForwarderConfig) forward
 		sdk.UseCrossConnectMonitor(config.Monitor),
 		sdk.DirectMemifInterfaces(config.NSMBaseDir),
 		sdk.Connect(v.endpoint()),
-		sdk.KernelInterfaces(config.NSMBaseDir, config.EgressInterface.MTU(), config.ConnectionMTUOverride),
+		sdk.KernelInterfaces(config.NSMBaseDir, config.EgressInterface.MTU(), v.maxMechanismMTUOverhead(), config.ConnectionMTUOverride),
 		sdk.UseEthernetContext(),
 		sdk.ClearMechanisms(config.NSMBaseDir),
 		sdk.Commit(v.downstreamResync))
@@ -437,4 +438,15 @@ func (v *VPPAgent) configureVPPAgent() error {
 	}
 	v.setupMetricsCollector()
 	return nil
+}
+
+// maxMechanismMTUOverhead returns maximum MTU overhead of all the supported mechanism types
+func (v *VPPAgent) maxMechanismMTUOverhead() (maxOverhead uint32) {
+	for _, m := range append(v.common.Mechanisms.LocalMechanisms, v.common.Mechanisms.RemoteMechanisms...) {
+		o, _ := mechanisms.GetMTUOverhead(m)
+		if o > maxOverhead {
+			maxOverhead = o
+		}
+	}
+	return
 }

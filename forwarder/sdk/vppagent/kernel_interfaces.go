@@ -11,25 +11,28 @@ import (
 )
 
 //KernelInterfaces creates forwarder server handler with creation dataChange config for kernel and not direct memif connections
-func KernelInterfaces(baseDir string, baseMTU, mtuOverride uint32) forwarder.ForwarderServer {
+func KernelInterfaces(baseDir string, baseMTU, mechanismMTUOverhead, mtuOverride uint32) forwarder.ForwarderServer {
 	return &kernelInterfaces{
-		baseDir:     baseDir,
-		baseMTU:     baseMTU,
-		mtuOverride: mtuOverride,
+		baseDir:              baseDir,
+		baseMTU:              baseMTU,
+		mechanismMTUOverhead: mechanismMTUOverhead,
+		mtuOverride:          mtuOverride,
 	}
 }
 
 type kernelInterfaces struct {
-	baseDir     string
-	baseMTU     uint32
-	mtuOverride uint32
+	baseDir              string
+	baseMTU              uint32
+	mechanismMTUOverhead uint32
+	mtuOverride          uint32
 }
 
 func (c *kernelInterfaces) Request(ctx context.Context, crossConnect *crossconnect.CrossConnect) (*crossconnect.CrossConnect, error) {
 	conversionParameters := &converter.CrossConnectConversionParameters{
-		BaseDir:     c.baseDir,
-		BaseMTU:     c.baseMTU,
-		MTUOverride: c.mtuOverride,
+		BaseDir:              c.baseDir,
+		BaseMTU:              c.baseMTU,
+		MechanismMTUOverhead: c.mechanismMTUOverhead,
+		MTUOverride:          c.mtuOverride,
 	}
 	dataChange, err := converter.NewCrossConnectConverter(crossConnect, conversionParameters).ToDataRequest(nil, true)
 	if err != nil {
