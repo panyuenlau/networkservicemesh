@@ -16,6 +16,7 @@ package vppagent
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -53,13 +54,16 @@ const (
 )
 
 type VPPAgent struct {
-	metricsCollector *MetricsCollector
-	common           *common.ForwarderConfig
-	downstreamResync func()
+	metricsCollector     *MetricsCollector
+	common               *common.ForwarderConfig
+	downstreamResync     func()
+	mechanismMTUOverhead chan uint32
 }
 
 func CreateVPPAgent() *VPPAgent {
-	return &VPPAgent{}
+	return &VPPAgent{
+		mechanismMTUOverhead: make(chan uint32, 1),
+	}
 }
 
 //CreateForwarderServer creates ForwarderServer handler
@@ -69,7 +73,7 @@ func (v *VPPAgent) CreateForwarderServer(config *common.ForwarderConfig) forward
 		sdk.UseCrossConnectMonitor(config.Monitor),
 		sdk.DirectMemifInterfaces(config.NSMBaseDir),
 		sdk.Connect(v.endpoint()),
-		sdk.KernelInterfaces(config.NSMBaseDir, config.EgressInterface.MTU(), v.maxMechanismMTUOverhead(), config.ConnectionMTUOverride),
+		sdk.KernelInterfaces(config.NSMBaseDir, config.EgressInterface.MTU(), config.ConnectionMTUOverride, v.mechanismMTUOverhead),
 		sdk.UseEthernetContext(),
 		sdk.ClearMechanisms(config.NSMBaseDir),
 		sdk.Commit(v.downstreamResync))
@@ -97,6 +101,7 @@ func (v *VPPAgent) MonitorMechanisms(empty *empty.Empty, updateSrv forwarder.Mec
 		case update := <-v.common.MechanismsUpdateChannel:
 			updateSpan := spanhelper.FromContext(span.Context(), "Sending update")
 			v.common.Mechanisms = update
+			v.mechanismMTUOverhead <- v.maxMechanismMTUOverhead()
 			updateSpan.Logger().Infof("Sending MonitorMechanisms update")
 			updateSpan.LogObject("update", update)
 			if err := updateSrv.Send(&forwarder.MechanismUpdate{
@@ -410,7 +415,8 @@ func (v *VPPAgent) configureVPPAgent() error {
 			{
 				Type: vxlan.MECHANISM,
 				Parameters: map[string]string{
-					vxlan.SrcIP: v.common.EgressInterface.SrcIPNet().IP.String(),
+					vxlan.SrcIP:            v.common.EgressInterface.SrcIPNet().IP.String(),
+					mechanisms.MTUOverhead: strconv.Itoa(vxlan.MTUOverhead),
 				},
 			},
 		},
@@ -423,9 +429,11 @@ func (v *VPPAgent) configureVPPAgent() error {
 					srv6.SrcHostIP:          v.common.EgressInterface.SrcIPV6Net().IP.String(),
 					srv6.SrcHostLocalSID:    v.common.EgressInterface.SrcLocalSID().String(),
 					srv6.SrcHardwareAddress: v.common.EgressInterface.HardwareAddr().String(),
+					mechanisms.MTUOverhead:  strconv.Itoa(srv6.MTUOverhead),
 				},
 			})
 	}
+	v.mechanismMTUOverhead <- v.maxMechanismMTUOverhead()
 	err = v.reset()
 	if err != nil {
 		logrus.Errorf("Error resetting the VPP Agent: %s", err)
