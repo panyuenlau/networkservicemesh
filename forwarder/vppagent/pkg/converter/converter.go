@@ -7,7 +7,10 @@ type Converter interface {
 }
 
 type CrossConnectConversionParameters struct {
-	BaseDir string
+	BaseDir              string
+	BaseMTU              uint32 // base MTU to be applied = MTU of the egress interface
+	MechanismMTUOverhead uint32 // maximum MTU overhead of all the supported mechanism types
+	MTUOverride          uint32 // specific MTU that overrides automatic MTU calculation
 }
 
 type ConnectionContextSide int
@@ -23,4 +26,5 @@ type ConnectionConversionParameters struct {
 	Side      ConnectionContextSide
 	Name      string
 	BaseDir   string
+	MTU       uint32
 }

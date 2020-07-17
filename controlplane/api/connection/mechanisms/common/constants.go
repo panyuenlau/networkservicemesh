@@ -16,4 +16,7 @@ const (
 	InterfaceNameKey = "name"
 	// InterfaceDescriptionKey - interface description mechanism property key
 	InterfaceDescriptionKey = "description"
+
+	// MTUOverhead - MTU overhead of a mechanism
+	MTUOverhead = "mtu_overhead"
 )

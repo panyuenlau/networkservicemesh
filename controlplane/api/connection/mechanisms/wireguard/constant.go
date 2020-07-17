@@ -50,4 +50,7 @@ const (
 	DstPublicKey = "dst_public_key"
 	// DstPrivateKey - Source private key
 	DstPrivateKey = "dst_private_key"
+
+	// MTUOverhead - maximum transmission unit overhead for Wireguard encapsulation
+	MTUOverhead = 75 // TODO: verify (https://lists.zx2c4.com/pipermail/wireguard/2019-July/004289.html)
 )

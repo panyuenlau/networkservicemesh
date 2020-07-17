@@ -62,6 +62,7 @@ const (
 	ForwarderSocketTypeKey               = "FORWARDER_SOCKET_TYPE"
 	ForwarderSocketTypeDefault           = "unix"
 	ForwarderSrcIPKey                    = "NSM_FORWARDER_SRC_IP"
+	ForwarderConnectionMTUOverrideKey    = "NSM_CONNECTION_MTU_OVERRIDE"
 )
 
 // ForwarderConfig keeps the common configuration for a forwarding plane
@@ -78,6 +79,7 @@ type ForwarderConfig struct {
 	MetricsPeriod           time.Duration
 	SrcIP                   net.IP
 	EgressInterface         EgressInterfaceType
+	ConnectionMTUOverride   uint32
 	GRPCserver              *grpc.Server
 	Monitor                 monitor_crossconnect.MonitorServer
 	Listener                net.Listener
@@ -113,6 +115,25 @@ func getEnvWithDefaultBool(span spanhelper.SpanHelper, env string, defaultValue 
 		span.LogError(err)
 		if err != nil {
 			result = defaultValue
+		}
+	}
+	return result
+}
+
+func getEnvWithDefaultUint32(span spanhelper.SpanHelper, env string, defaultValue uint32) uint32 {
+	result := defaultValue
+	resultVal, ok := os.LookupEnv(env)
+	if !ok {
+		span.LogObject(env, fmt.Sprintf("%v (default value)", defaultValue))
+		result = defaultValue
+	} else {
+		span.LogObject(env, result)
+		resultInt, err := strconv.Atoi(resultVal)
+		span.LogError(err)
+		if err != nil {
+			result = defaultValue
+		} else {
+			result = uint32(resultInt)
 		}
 	}
 	return result
@@ -171,6 +192,7 @@ func createForwarderConfig(ctx context.Context, forwarderGoals *ForwarderProbeGo
 	} else {
 		forwarderGoals.SetNewEgressIFReady()
 	}
+	cfg.ConnectionMTUOverride = getEnvWithDefaultUint32(span, ForwarderConnectionMTUOverrideKey, 0)
 	span.Logger().Infof("SrcIP: %s, IfaceName: %s, SrcIPNet: %s", cfg.SrcIP, cfg.EgressInterface.Name(), cfg.EgressInterface.SrcIPNet())
 	span.LogObject("config", cfg)
 	return cfg
