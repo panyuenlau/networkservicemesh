@@ -5,7 +5,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: skydive-analyzer
-  namespace: {{ .Release.Namespace }}
 spec:
   type: {{ .Values.monSvcType }}
   ports:
