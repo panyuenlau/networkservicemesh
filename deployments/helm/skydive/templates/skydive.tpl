@@ -33,12 +33,12 @@ data:
         driver: memory
 
     logging:
-      level: INFO
+      level: DEBUG
 
     agent:
       topology:
         probes:
-          - docker
+          - runc
 
     analyzer:
       listen: 0.0.0.0:8082
@@ -56,8 +56,8 @@ data:
     ui:
       topology:
         favorites:
-          nsm-filter: "G.V().Has('Type', 'container', 'Docker.Labels.io.kubernetes.pod.namespace', '{{ .Release.Namespace }}').In('Type', 'netns').Descendants().As('namespaces').G.V().Has('Type', 'host').As('hosts').Select('namespaces', 'hosts')"
-          nsm-filter-secure-intranet-connectivity: "G.V().Has('Type', 'container', 'Docker.Labels.networkservicemesh.io/impl', 'secure-intranet-connectivity').In('Type', 'netns').Descendants().As('namespaces').G.V().Has('Type', 'host').As('hosts').Select('namespaces', 'hosts')"
+          nsm-filter: "G.V().Has('Type', 'netns').Descendants().As('namespaces').G.V().Has('Type', 'host').As('hosts').Select('namespaces', 'hosts')"
+          nsm-filter-secure-intranet-connectivity: "G.V().Has('Type', 'netns').Descendants().As('namespaces').G.V().Has('Type', 'host').As('hosts').Select('namespaces', 'hosts')"
           nsm-edges: "G.E().HasKey('NSM')"
 
         default_filter: "nsm-filter"
@@ -80,9 +80,10 @@ spec:
         app: skydive
         tier: analyzer
     spec:
+      serviceAccount: nsmgr-acc
       containers:
         - name: skydive-analyzer
-          image: skydive/skydive:0.23.0
+          image: {{ .Values.image }}
           imagePullPolicy: {{ .Values.pullPolicy }}
           args:
             - analyzer
@@ -103,10 +104,18 @@ spec:
             - mountPath: /etc/skydive.yml
               subPath: skydive.yml
               name: skydive-analyzer-config-file
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
       volumes:
         - name: skydive-analyzer-config-file
           configMap:
             name: skydive-analyzer-config-file
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: DirectoryOrCreate
+
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -116,16 +125,20 @@ metadata:
 data:
   skydive.yml: |
     logging:
-      level: INFO
+      level: DEBUG
 
     agent:
       topology:
         probes:
-          - docker
+          - runc
 
       docker:
         netns:
           run_path: /var/run/netns
+
+      runc:
+        run_path:
+        - /var/run/containerd/runc
 
 ---
 apiVersion: apps/v1
@@ -148,7 +161,7 @@ spec:
       hostPID: true
       containers:
         - name: skydive-agent
-          image: skydive/skydive:0.24.0
+          image: {{ .Values.image }}
           imagePullPolicy: {{ .Values.pullPolicy }}
           args:
             - agent
@@ -164,16 +177,29 @@ spec:
               mountPath: /var/run/docker.sock
             - name: run
               mountPath: /var/run/netns
+              mountPropagation: HostToContainer
+            - name: runc
+              mountPath: /var/run/containerd/runc
             - name: skydive-agent-config-file
               mountPath: /etc/skydive.yml
               subPath: skydive.yml
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
       volumes:
         - name: docker
           hostPath:
             path: /var/run/docker.sock
         - name: run
           hostPath:
-            path: /var/run/docker/netns
+            path: /var/run/netns
+        - name: runc
+          hostPath:
+            path: /var/run/containerd/runc
         - name: skydive-agent-config-file
           configMap:
             name: skydive-agent-config-file
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: DirectoryOrCreate

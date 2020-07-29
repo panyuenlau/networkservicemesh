@@ -6,3 +6,7 @@
 # The type for monitoring services, i.e. Skydive
 # May be set to valid Kubernetes ServiceTypes values--ClusterIP, NodePort, LoadBalancer, ExternalName
 monSvcType: ClusterIP
+
+#image: skydive/skydive:latest
+image: matrohon/skydive:latest
+# see: # https://github.com/networkservicemesh/networkservicemesh/pull/1777
