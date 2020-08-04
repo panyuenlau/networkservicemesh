@@ -35,6 +35,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
+            {{- if .Values.vpp.mtuOverride }}
+            - name: NSM_CONNECTION_MTU_OVERRIDE
+              value: {{ .Values.vpp.mtuOverride | quote }}
+            {{- end }}
           volumeMounts:
             - name: workspace
               mountPath: /var/lib/networkservicemesh/
