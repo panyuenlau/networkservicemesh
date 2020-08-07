@@ -19,4 +19,7 @@ const (
 	DstExternalIP = common.DstExternalIP
 	// VNI - vni
 	VNI = "vni"
+
+	// MTUOverhead - maximum transmission unit overhead for VXLAN encapsulation
+	MTUOverhead = 50
 )

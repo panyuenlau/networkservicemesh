@@ -2,6 +2,7 @@ package connectioncontext
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/pkg/errors"
 )
@@ -107,4 +108,35 @@ func (c *ExtraPrefixRequest) IsValid() error {
 	}
 
 	return nil
+}
+
+// SetMTUOverhead sets the MTU overhead in the connection context
+func (c *ConnectionContext) SetMTUOverhead(mtu uint32) error {
+	if c == nil {
+		return errors.New("ConnectionContext should not be nil")
+	}
+	if c.ExtraContext == nil {
+		c.ExtraContext = make(map[string]string)
+	}
+	c.ExtraContext[MTUOverhead] = strconv.FormatUint(uint64(mtu), 10)
+	return nil
+}
+
+// GetMTUOverhead returns the MTU overhead value from the connection context
+func (c *ConnectionContext) GetMTUOverhead() (uint32, error) {
+	if c == nil {
+		return 0, errors.New("ConnectionContext should not be nil")
+	}
+	if c.ExtraContext == nil {
+		return 0, nil
+	}
+	overheadParam, ok := c.ExtraContext[MTUOverhead]
+	if !ok {
+		return 0, nil // parameter not found - return 0
+	}
+	overhead, err := strconv.Atoi(overheadParam)
+	if err != nil {
+		return 0, errors.Errorf("cannot convert ConnectionContext.ExtraContext[%s] to number: %v", MTUOverhead, err)
+	}
+	return uint32(overhead), nil
 }

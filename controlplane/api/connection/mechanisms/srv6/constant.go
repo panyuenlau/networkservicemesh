@@ -43,4 +43,7 @@ const (
 	SrcHardwareAddress = "src_hw_addr"
 	// DstHardwareAddress - dst hw address
 	DstHardwareAddress = "dst_hw_addr"
+
+	// MTUOverhead - maximum transmission unit overhead for SRv6 encapsulation
+	MTUOverhead = 40 // TODO: verify: this accomodates SRv6 header (8 bytes) + 2 SID IP (32 bytes)
 )

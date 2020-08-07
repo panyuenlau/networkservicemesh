@@ -47,6 +47,7 @@ func (c *CrossConnectConverter) ToDataRequest(rv *configurator.Config, connect b
 
 	srcName := srcPrefix + c.GetId()
 	dstName := dstPrefix + c.GetId()
+	mtu := c.calculateInterfaceMTU()
 
 	if src := c.GetLocalSource(); src != nil {
 		baseDir := path.Join(c.conversionParameters.BaseDir, src.GetMechanism().GetParameters()[common.Workspace])
@@ -55,6 +56,7 @@ func (c *CrossConnectConverter) ToDataRequest(rv *configurator.Config, connect b
 			Terminate: false,
 			Side:      SOURCE,
 			BaseDir:   baseDir,
+			MTU:       mtu,
 		}
 		var err error
 		rv, err = NewLocalConnectionConverter(src, conversionParameters).ToDataRequest(rv, connect)
@@ -70,6 +72,7 @@ func (c *CrossConnectConverter) ToDataRequest(rv *configurator.Config, connect b
 			Terminate: false,
 			Side:      DESTINATION,
 			BaseDir:   baseDir,
+			MTU:       mtu,
 		}
 		var err error
 		rv, err = NewLocalConnectionConverter(dst, conversionParameters).ToDataRequest(rv, connect)
@@ -131,4 +134,29 @@ func (c *CrossConnectConverter) MechanismsToDataRequest(rv *configurator.Config,
 	}
 
 	return rv, nil
+}
+
+// calculateInterfaceMTU returns the proper MTU to be applied on xconnect interfaces
+func (c *CrossConnectConverter) calculateInterfaceMTU() uint32 {
+	if c.conversionParameters.MTUOverride != 0 {
+		return c.conversionParameters.MTUOverride // MTUOverride takes precedence if set
+	}
+	if c.conversionParameters.BaseMTU == 0 {
+		return 0 // MTU 0 in vppagent API means undefined
+	}
+	// find the largest MTU overhead from both src/dst mechanisms and src/dst extra contexts
+	srcOverhead, _ := c.Source.GetContext().GetMTUOverhead()
+	dstOverhead, _ := c.Destination.GetContext().GetMTUOverhead()
+	overheads := []uint32{
+		c.conversionParameters.MechanismMTUOverhead,
+		srcOverhead,
+		dstOverhead,
+	}
+	maxOverhead := uint32(0)
+	for _, o := range overheads {
+		if o > maxOverhead {
+			maxOverhead = o
+		}
+	}
+	return c.conversionParameters.BaseMTU - maxOverhead
 }
