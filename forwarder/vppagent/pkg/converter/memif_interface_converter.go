@@ -84,10 +84,17 @@ func (c *MemifInterfaceConverter) ToDataRequest(rv *configurator.Config, connect
 		Enabled:     true,
 		IpAddresses: ipAddresses,
 		Mtu:         c.conversionParameters.MTU,
+		RxModes: []*vpp_interfaces.Interface_RxMode{
+			{
+				Mode:        vpp_interfaces.Interface_RxMode_INTERRUPT,
+				DefaultMode: true,
+			},
+		},
 		Link: &vpp_interfaces.Interface_Memif{
 			Memif: &vpp_interfaces.MemifLink{
 				Master:         isMaster,
 				SocketFilename: path.Join(fullyQualifiedSocketFilename),
+				RingSize:       512,
 			},
 		},
 	})
