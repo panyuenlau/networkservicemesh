@@ -31,7 +31,6 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     run: jaeger
-  namespace: {{ .Release.Namespace }}
 spec:
   ports:
     - name: http
