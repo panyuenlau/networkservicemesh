@@ -10,19 +10,18 @@ jobs:
           name: Build and Publish Images
           command: |
             TAGSUFFIX=$(date +%Y%m%d)
-            PUB_ORG=${DOCKER_ORG:-$DOCKER_USER}
             export CONTAINER_TAG=v0.2.1-vl3-nsmrs
-            export CONTAINER_REPO=localci
+            export CONTAINER_REPO=${DOCKER_ORG:-$DOCKER_USER}
             make k8s-build
 
             nsmimgs=($(docker images | grep -E "${CONTAINER_TAG}" | awk '{ print $1 }'))
             docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD}
             for img in ${nsmimgs[@]}; do
-              echo "--- pushing ${img}:${CONTAINER_TAG} as ${PUB_ORG}/${img}:${CONTAINER_TAG}"
-              docker tag ${img} ${PUB_ORG}/${img}:${CONTAINER_TAG}
-              docker push ${PUB_ORG}/${img}:${CONTAINER_TAG}
-              docker tag ${img} ${PUB_ORG}/${img}:${CONTAINER_TAG}-${TAGSUFFIX}
-              docker push ${PUB_ORG}/${img}:${CONTAINER_TAG}-${TAGSUFFIX}
+              echo "--- pushing ${img}:${CONTAINER_TAG} and ${img}:${CONTAINER_TAG}-${TAGSUFFIX}"
+              docker tag ${img} ${img}:${CONTAINER_TAG}
+              docker push ${img}:${CONTAINER_TAG}
+              docker tag ${img} ${img}:${CONTAINER_TAG}-${TAGSUFFIX}
+              docker push ${img}:${CONTAINER_TAG}-${TAGSUFFIX}
             done
 workflows:
   build-n-push:
