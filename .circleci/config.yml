@@ -10,7 +10,7 @@ jobs:
           name: Build and Publish Images
           command: |
             TAGSUFFIX=$(date +%Y%m%d)
-            export CONTAINER_TAG=v0.2.1-vl3-nsmrs
+            export CONTAINER_TAG=vl3_latest
             export CONTAINER_REPO=${DOCKER_ORG:-$DOCKER_USER}
             make k8s-build
 
