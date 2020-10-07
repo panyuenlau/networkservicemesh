@@ -1,277 +1,34 @@
----
 version: 2.1
-
-commands:
-  skip_on_pattern:
-    description: "Skips running job if the only files in the change match the pattern"
-    parameters:
-      branch:
-        type: string
-        default: origin/master
-    steps:
-      - run:
-          name: "Skips running job if the only files in the change match the pattern"
-          command: |
-            ./.circleci/skip_job_on_pattern.sh << parameters.branch >>
-
 jobs:
-
-# sanity
-  test-sanity-check:
-    resource_class: xlarge
-    working_directory: /go/src/github.com/networkservicemesh/networkservicemesh
+  build-n-push:
     docker:
-      - image: circleci/golang:1.13-stretch
+      - image: 'circleci/golang:latest'
     steps:
       - checkout
+      - setup_remote_docker
       - run:
-          name: Install Shellcheck
-          command: ./.circleci/install-shellcheck.sh
-      - run:
-          name: Run Shellcheck
-          command: make check
-      - run:
-          name: Run Error Usage Check
-          command: ./scripts/check_errors.sh
-      - skip_on_pattern
-      - run:
+          name: Build and Publish Images
           command: |
-            sudo apt-get install python-pip python3-pkg-resources
-            pip install --user yamllint
-      - run: yamllint -c .yamllint.yml --strict .
-      - run: go version
-      - run:
-          name: Download Go Dependencies
-          command: |
-            ./scripts/for-each-module.sh "$(pwd)/scripts/go-mod-download.sh"
-      - run:
-          name: Check code formatting
-          command: |
-            make install-formatter
-            make format
-            git diff --exit-code || (echo 'Seems like your Go files are not properly formatted. Run `make format` in your branch and commit the changes.' && exit 1)
-      - run: ./scripts/prepare-generate.sh
-      - run: sudo ./scripts/install-protoc.sh
-      - run: ./scripts/for-each-module.sh "go generate ./..."
-      - run: git diff --exit-code || (echo 'Seems like your generated files are not actual. Run `go generate ./...` for each module in your branch and commit the changes.' && exit 1)
-      - run: make vet
-      - run: ./scripts/for-each-module.sh "go build ./..."
-      - run: ./scripts/check_dependencies.sh
-      - run:
-          name: Integration tests
-          command: |
-            pushd test
-            go test ./integration --list .* -tags basic recover usecase
-            popd
-      - run: mkdir -p ~/junit/
-      - run:
-          command: |
-            export CONTAINER_TAG="ci_${CIRCLE_WORKFLOW_ID}_${CIRCLE_SHA1:8:8}"
-            export CONTAINER_REPO="networkservicemeshci"
-            export CONTAINER_FORCE_PULL="true"
-            export INSECURE="true"
-            ./scripts/run_unit_tests.sh
-      - store_test_results:
-          path: ~/junit
-      - store_artifacts:
-          path: ~/junit
-    environment:
-      GO111MODULE: "on"
+            TAGSUFFIX=$(date +%Y%m%d)
+            export CONTAINER_TAG=vl3_latest
+            export CONTAINER_REPO=${DOCKER_ORG:-$DOCKER_USER}
+            make k8s-build
 
-# code analysis
-  test-static-code-analysis:
-    resource_class: large
-    docker:
-      - image: circleci/golang:1.13-stretch
-    steps:
-      - checkout
-      - skip_on_pattern
-      - run:
-          name: lint
-          command: |
-            ./scripts/lint-download.sh
-            ./scripts/for-each-module.sh "$(pwd)/scripts/lint-check-diff.sh"
-      - run:
-          name: license lint
-          command: |
-            go get github.com/denis-tingajkin/go-header@v0.2.1
-            go-header
-    environment:
-      GO111MODULE: "on"
-      LOG_LEVEL: "error"
-
-# integration
-  integration-tests:
-    docker:
-      - image: circleci/golang:1.13-stretch
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - skip_on_pattern
-      - run:
-          command: |
-            sudo ./.circleci/install-yq.sh
-      - run:
-          command: |
-            sudo ./.circleci/set-nameserver.sh sudo
-            sudo apt-get install gettext-base
-      - run:
-          name: "Install kubectl"
-          command: |
-            sudo ./scripts/install-kubectl.sh
-      - run:
-          name: "Install GKE deps"
-          command: |
-            sudo ./scripts/gke/install-gcloud-sdk.sh
-      - run:
-          name: "Install Azure deps"
-          command: |
-            sudo ./scripts/azure/install-azure-cli.sh
-      - run:
-          name: "Init AWS"
-          command: |
-            ./scripts/aws/aws-init.sh
-            sudo cp "$HOME/bin/aws-iam-authenticator" /usr/local/bin/aws-iam-authenticator
-      - run:
-          name: "Install Helm"
-          command: |
-            ./scripts/install-helm.sh
-            sudo cp "$HOME/bin/helm" /usr/local/bin/helm
-      - run:
-          name: Downloading go deps
-          command: |
-            export CONTAINER_TAG="ci_${CIRCLE_WORKFLOW_ID}_${CIRCLE_SHA1:8:8}"
-            ./scripts/go-mod-download.sh
-          no_output_timeout: 40m
-      - run:
-          name: Generating CA
-          command: |
-            export CA_DIR=./deployments/helm/nsm/charts/spire/
-            ./scripts/generate-ca.sh $CA_DIR
-      - run:
-          name: Running integration tests
-          command: |
-            export CONTAINER_TAG="ci_${CIRCLE_WORKFLOW_ID}_${CIRCLE_SHA1:8:8}"
-            export REPO="networkservicemeshci"
-            export CONTAINER_REPO=${REPO}
-            echo "CONTAINER_REPO=${CONTAINER_REPO}"
-            if [ "${CIRCLE_BRANCH}" == "master" ]; then
-              export ARTIFACTS_SAVE_ALWAYS=true
-            fi
-            pushd test
-            go get github.com/networkservicemesh/cloudtest
-            popd
-            cloudtest || ERR=$?
-            [ "${CIRCLE_BRANCH}" == "master" ] && [ "$ERR" == "" ] && exit 0
-            echo "Cleaning up CI images from DockerHub.."
-            REPO=networkservicemeshci TAGS="$CONTAINER_TAG" IMAGES=$(make docker-list) .circleci/dockerhub-image-remove
-            exit $ERR
-          no_output_timeout: 40m
-      - store_test_results:
-          path: .tests/cloud_test/results/
-      - store_artifacts:
-          path: .tests/cloud_test/
-      - store_artifacts:
-          path: ~/postmortem
-    environment:
-      GO111MODULE: "on"
-      NSM_NAMESPACE: "nsm-system"
-
-# build
-  build-containers:
-    resource_class: xlarge
-    docker:
-      - image: circleci/golang:1.13-stretch
-    steps:
-      - checkout
-      - skip_on_pattern
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: Build containers
-          command: |
-            export CONTAINER_TAG="ci_${CIRCLE_WORKFLOW_ID}_${CIRCLE_SHA1:8:8}"
-            export CONTAINER_REPO="networkservicemeshci"
-            export GOPROXY=https://proxy.golang.org,direct
-            # resource_class xlarge has 8 core, multiple by 1.5 for hyperthreading for -j factor
-            make -j 12 -O docker-push && exit
-            echo "Build failed, cleaning up CI images from DockerHub.."
-            REPO=$CONTAINER_REPO TAGS="$CONTAINER_TAG" IMAGES=$(make docker-list) .circleci/dockerhub-image-remove
-            exit 1
-
-# docker push
-  docker-push-tag:
-    docker:
-      - image: circleci/golang:1.13-stretch
-    parameters:
-      tag:
-        type: string
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          command: |
-            echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-            export PULL_TAG="ci_${CIRCLE_WORKFLOW_ID}_${CIRCLE_SHA1:8:8}"
-            export CONTAINER_TAG="<< parameters.tag >>"
-            export REPO="networkservicemesh"
-            export PULL_REPO="networkservicemeshci"
-            for c in $(make docker-list); do
-              docker pull ${PULL_REPO}/${c}:${PULL_TAG}
-              docker tag ${PULL_REPO}/${c}:${PULL_TAG} ${REPO}/${c}:${CONTAINER_TAG}
-              docker push ${REPO}/${c}:${CONTAINER_TAG}
+            nsmimgs=($(docker images | grep -E "${CONTAINER_TAG}" | awk '{ print $1 }'))
+            docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD}
+            for img in ${nsmimgs[@]}; do
+              echo "--- pushing ${img}:${CONTAINER_TAG} and ${img}:${CONTAINER_TAG}-${TAGSUFFIX}"
+              docker tag ${img} ${img}:${CONTAINER_TAG}
+              docker push ${img}:${CONTAINER_TAG}
+              docker tag ${img} ${img}:${CONTAINER_TAG}-${TAGSUFFIX}
+              docker push ${img}:${CONTAINER_TAG}-${TAGSUFFIX}
             done
-      - run:
-          name: Cleanup CI images from DockerHub
-          command: |
-            echo "Cleaning up CI images from DockerHub.."
-            CONTAINER_TAG="ci_${CIRCLE_WORKFLOW_ID}_${CIRCLE_SHA1:8:8}"
-            REPO=networkservicemeshci TAGS="$CONTAINER_TAG" IMAGES=$(make docker-list) .circleci/dockerhub-image-remove
-
-# helm
-  test-helm-charts:
-    docker:
-      - image: quay.io/helmpack/chart-testing:v2.3.0
-    steps:
-      - checkout
-      - run:
-          name: Install and lint Helm charts
-          command: |
-            .circleci/helm/test-charts.sh
-
-# workflows
 workflows:
-  version: 2
-  build-and-test:
+  build-n-push:
     jobs:
-      - test-sanity-check
-      - test-static-code-analysis:
-          name: "test-static-code-analysis"
-          requires:
-            - test-sanity-check
-# build
-      - build-containers:
-          requires:
-            - test-sanity-check
-
-# Integration testing
-      - integration-tests:
-          name: "test-integration"
-          requires:
-            - build-containers
-# helm
-      - test-helm-charts:
-          name: "test-helm-charts"
-          requires:
-            - test-sanity-check
-
-# push
-      - docker-push-tag:
-          tag: "master"
-          requires:
-            - test-integration
+      - build-n-push:
+          context: nse-publish
           filters:
             branches:
-              only: master
+              only:
+                - vl3_latest
