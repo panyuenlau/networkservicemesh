@@ -18,7 +18,7 @@ jobs:
             nsmimgs=($(docker images | grep -E "${CONTAINER_TAG}" | awk '{ print $1 }'))
             docker login -u ${DOCKER_USER} -p ${DOCKER_PASSWORD}
             for img in ${nsmimgs[@]}; do
-              echo "--- pushing ${img}:${CONTAINER_TAG} as ${PUB_ORG}/${img}:${CONTAINER_TAG}
+              echo "--- pushing ${img}:${CONTAINER_TAG} as ${PUB_ORG}/${img}:${CONTAINER_TAG}"
               docker tag ${img} ${PUB_ORG}/${img}:${CONTAINER_TAG}
               docker push ${PUB_ORG}/${img}:${CONTAINER_TAG}
               docker tag ${img} ${PUB_ORG}/${img}:${CONTAINER_TAG}-${TAGSUFFIX}
