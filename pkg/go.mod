@@ -1,4 +1,4 @@
-module github.com/tiswanso/networkservicemesh/pkg
+module github.com/cisco-app-networking/networkservicemesh/pkg
 
 go 1.13
 
