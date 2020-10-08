@@ -1,4 +1,4 @@
-module github.com/tiswanso/networkservicemesh/controlplane/api
+module github.com/cisco-app-networking/networkservicemesh/controlplane/api
 
 go 1.13
 
