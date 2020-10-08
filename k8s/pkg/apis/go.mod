@@ -1,4 +1,4 @@
-module github.com/tiswanso/networkservicemesh/k8s/pkg/apis
+module github.com/cisco-app-networking/networkservicemesh/k8s/pkg/apis
 
 go 1.13
 

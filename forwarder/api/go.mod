@@ -1,4 +1,4 @@
-module github.com/tiswanso/networkservicemesh/forwarder/api
+module github.com/cisco-app-networking/networkservicemesh/forwarder/api
 
 go 1.13
 
