@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/spiffe"
 )
