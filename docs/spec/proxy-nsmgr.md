@@ -29,18 +29,18 @@ Following is an example of the full Proxy NSMgr deployment.
 ```yaml
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: proxy-nsmgr
   namespace: nsm-system
 spec:
   selector:
     matchLabels:
-      app: proxy-nsmgr-daemonset
+      app: proxy-nsmgr-deployment
   template:
     metadata:
       labels:
-        app: proxy-nsmgr-daemonset
+        app: proxy-nsmgr-deployment
     spec:
       containers:
         - name: proxy-nsmd
@@ -66,7 +66,7 @@ kind: Service
 metadata:
   name: pnsmgr-svc
   labels:
-    app: proxy-nsmgr-daemonset
+    app: proxy-nsmgr-deployment
   namespace: nsm-system
 spec:
   ports:
@@ -77,7 +77,7 @@ spec:
       port: 5006
       protocol: TCP
   selector:
-    app: proxy-nsmgr-daemonset
+    app: proxy-nsmgr-deployment
 
 ```
 
