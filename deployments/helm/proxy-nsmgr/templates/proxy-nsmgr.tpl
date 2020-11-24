@@ -5,6 +5,7 @@ metadata:
   name: proxy-nsmgr
   namespace: {{ .Release.Namespace }}
 spec:
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: proxy-nsmgr-deployment
