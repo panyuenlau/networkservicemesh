@@ -1,17 +1,18 @@
 ---
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: proxy-nsmgr
   namespace: {{ .Release.Namespace }}
 spec:
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: proxy-nsmgr-daemonset
+      app: proxy-nsmgr-deployment
   template:
     metadata:
       labels:
-        app: proxy-nsmgr-daemonset
+        app: proxy-nsmgr-deployment
     spec:
       serviceAccount: proxy-nsmgr-acc
       containers:
@@ -66,7 +67,7 @@ kind: Service
 metadata:
   name: pnsmgr-svc
   labels:
-    app: proxy-nsmgr-daemonset
+    app: proxy-nsmgr-deployment
   namespace: {{ .Release.Namespace }}
 spec:
   type: NodePort
@@ -80,4 +81,4 @@ spec:
       nodePort: 31506
       protocol: TCP
   selector:
-    app: proxy-nsmgr-daemonset
+    app: proxy-nsmgr-deployment

@@ -13,3 +13,5 @@ remoteNsrPort: 5005
 global:
   # set to true to enable Jaeger tracing for NSM components
   JaegerTracing: false
+
+replicaCount: 1
