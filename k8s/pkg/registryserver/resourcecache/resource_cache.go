@@ -122,11 +122,20 @@ func (c *abstractResourceCache) addEventHandlers(informer cache.SharedInformer) 
 				return
 			}
 			logrus.Infof("Update from k8s-registry: %v", reflect.TypeOf(old))
-			if _, ok := old.(*v1.NetworkServiceManager); !ok {
+			_, isNSMgr := old.(*v1.NetworkServiceManager)
+			_, isNS := old.(*v1.NetworkService)
+
+			if !isNSMgr && !isNS {
 				return
 			}
-			logrus.Infof("Old NSM: %v", old.(*v1.NetworkServiceManager))
-			logrus.Infof("New NSM: %v", new.(*v1.NetworkServiceManager))
+			if isNSMgr {
+				logrus.Infof("Old NSM: %v", old.(*v1.NetworkServiceManager))
+				logrus.Infof("New NSM: %v", new.(*v1.NetworkServiceManager))
+			} else {
+				logrus.Infof("Old NS: %v", old.(*v1.NetworkService))
+				logrus.Infof("New NS: %v", new.(*v1.NetworkService))
+			}
+
 			c.update(new)
 		}
 	}

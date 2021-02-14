@@ -29,6 +29,7 @@ func NewNetworkServiceCache(policy CacheFilterPolicy) *NetworkServiceCache {
 		resourceAddedFunc:   rv.resourceAdded,
 		resourceDeletedFunc: rv.resourceDeleted,
 		resourceGetFunc:     rv.resourceGet,
+		resourceUpdatedFunc: rv.resourceUpdated,
 		resourceType:        NsResource,
 	}
 	rv.cache = newAbstractResourceCache(config, policy)
@@ -79,6 +80,11 @@ func (c *NetworkServiceCache) resourceAdded(obj interface{}) {
 
 func (c *NetworkServiceCache) resourceDeleted(key string) {
 	delete(c.networkServices, key)
+}
+
+func (c *NetworkServiceCache) resourceUpdated(obj interface{}) {
+	ns := obj.(*v1.NetworkService)
+	c.networkServices[ns.Name] = ns
 }
 
 func (c *NetworkServiceCache) resourceGet(key string) interface{} {
